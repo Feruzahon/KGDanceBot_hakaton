@@ -16,7 +16,6 @@ class TelegramRegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
         return Response({"detail":"user created succeful"})
     
 
@@ -34,8 +33,7 @@ class ChildRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     # permission_classes = [IsParentOrAdmin]
-    authentication_classes = []
-
+    authentication_classes = [TelegramAuthentication]
 
 
 class CheckRoleView(APIView):

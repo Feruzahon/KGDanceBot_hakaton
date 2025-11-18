@@ -12,7 +12,7 @@ class Group(models.Model):
     users = models.ManyToManyField(User, related_name='groups', blank=True)
     time = models.TimeField(blank=True, null=True)
     days = models.CharField(max_length=50, choices=DAYS, null=True)
-    age = models.CharField(max_length=100, default='Все возраста')
+    age = models.CharField(max_length=100, default='Все')
     amount = models.PositiveIntegerField(null=True, blank=True)
 
     def __str__(self):

@@ -13,6 +13,8 @@ class Subscription(models.Model):
     price = models.PositiveIntegerField()
     total_lessons = models.PositiveIntegerField(default=12)
     used_lessons = models.PositiveIntegerField(default=0)
+    lesson_dates = models.JSONField(default=list, blank=True)
+    attendance = models.JSONField(default=dict, blank=True)
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -21,12 +23,9 @@ class Subscription(models.Model):
 
     def __str__(self):
         return f"{self.user.first_name} {self.user.last_name} | {self.group}"
+    
+    def check_and_delete(self):
+        if len(self.attendance) == self.total_lessons:
+            self.delete()
 
-    def mark(self):
-        if not self.is_active:
-            return False
-        self.used_lessons =+ 1
-        if self.used_lessons >= self.total_lessons or self.start_date > self.end_date:
-            self.is_active = False
-        self.save()
-        return True
+

@@ -4,8 +4,8 @@ import requests
 from decouple import config
 
 from bot.auth import Register, ChildRegister
-from bot.groups import CreateGroup, ListGroup, DetailGroup, UpdateGroup, DeleteGroup
-from bot.subscriptions import CreateSubscription, SubscriptionHandler
+from bot.groups import CreateGroup, ListGroup, DetailGroup, DetailGroupUser, UpdateGroup, DeleteGroup
+from bot.subscriptions import SubscriptionHandler
 from .utils import show_menu
 
 
@@ -28,7 +28,7 @@ def authentication(message):
 child_register_handler = ChildRegister(bot)
 @bot.callback_query_handler(func=lambda call:call.data == 'register_child')
 def register_child_handler(call):
-    child_register_handler.child_register(call.message)
+    child_register_handler.child_register(call)
 
 # ----------ГЛАВНОЕ МЕНЮ-----------
 @bot.message_handler(commands=['menu'])
@@ -37,7 +37,7 @@ def menu_handler(message):
     response = requests.post(f'{API_URL}account/role/', json={'telegram_id':telegram_id}, headers={'X-Telegram-Id':str(telegram_id)})
     if response.status_code == 200:
         role = response.json().get('role')
-        show_menu(bot, role, message.chat.id, role)
+        show_menu(bot, role, message.chat.id)
 
 @bot.callback_query_handler(func=lambda call:call.data == 'menu')
 def menu(call):
@@ -80,7 +80,7 @@ def days_handler(call):
             time = group['time'][:5]
             age = group['age']
             group_id = group['id']
-            markup.add(types.InlineKeyboardButton(f"{time} {title} {age}", callback_data='/'))
+            markup.add(types.InlineKeyboardButton(f"{time} {title} Возраст: {age}", callback_data='/'))
         markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data='timetable'))
 
         show_days = {'mon/wed/fri':'Пн-Ср-Пт','tue/thu/sat':'Вт-Чт-Сб','sat/sun':'Сб-Вс'}.get(days)
@@ -137,7 +137,6 @@ def admin(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Группы', callback_data='groups'))
     markup.add(types.InlineKeyboardButton('Абонементы', callback_data='subscriptions'))
-    markup.add(types.InlineKeyboardButton('Зарегистрировать ребенка', callback_data='register_child'))
     markup.add(types.InlineKeyboardButton('⬅️ Главное меню', callback_data='menu'))
 
     bot.send_message(message.chat.id,
@@ -151,7 +150,6 @@ def admin_panel(call):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('Группы', callback_data='groups'))
     markup.add(types.InlineKeyboardButton('Абонементы', callback_data='subscriptions'))
-    markup.add(types.InlineKeyboardButton('Зарегистрировать ребенка', callback_data='register_child'))
     markup.add(types.InlineKeyboardButton('⬅️ Главное меню', callback_data='menu'))
 
 
@@ -168,7 +166,7 @@ def admin_panel(call):
 @bot.callback_query_handler(func=lambda call:call.data == 'groups')
 def choose_days(call):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('➕ Создать', callback_data='create_group'))
+    markup.add(types.InlineKeyboardButton('➕ Создать группу', callback_data='create_group'))
     markup.add(types.InlineKeyboardButton('Пн/Ср/Пт', callback_data='mon_wed_fri'))
     markup.add(types.InlineKeyboardButton('Вт/Чт/Сб', callback_data='tue_thu_sat'))
     markup.add(types.InlineKeyboardButton('Сб/Вс', callback_data='sat_sun'))
@@ -203,90 +201,90 @@ detail_group_handler = DetailGroup(bot)
 def start_detail(call):
     detail_group_handler.detail_group(call)
 
+detail_user_handler = DetailGroupUser(bot)
+@bot.callback_query_handler(func=lambda call:call.data.startswith('group_user_'))
+def start_detail_user(call):
+    detail_user_handler.get_user_subs(call)
+
 update_group_handler = UpdateGroup(bot)
 @bot.callback_query_handler(func=lambda call:call.data.startswith('edit_'))
 def start_update(call):
     update_group_handler.start_update(call)
 
-@bot.callback_query_handler(func=lambda call:call.data.startswith('confirm_delete_'))
-def confirm_delete(call):
+@bot.callback_query_handler(func=lambda call:call.data.startswith('confirm_delete_group'))
+def confirm_delete_group(call):
     group_id = call.data.split('_')[2]
 
     markup = types.InlineKeyboardMarkup()
     markup.row(
-        types.InlineKeyboardButton("✅ Подтвердить", callback_data=f'delete_{group_id}'),
+        types.InlineKeyboardButton("✅ Подтвердить", callback_data=f'delete_group_{group_id}'),
         types.InlineKeyboardButton("❌ Отмена", callback_data=f'group_detail_{group_id}')
     )
     bot.edit_message_text(
-        text = 'Вы уверены что хотите удалить группу?',
+        text = 'Вы уверены, что хотите удалить группу?',
         chat_id = call.message.chat.id,
         message_id = call.message.message_id,
         reply_markup=markup
     )
 
-
 delete_group_handler = DeleteGroup(bot)
-@bot.callback_query_handler(func=lambda call:call.data.startswith('delete'))
+@bot.callback_query_handler(func=lambda call:call.data.startswith('delete_group_'))
 def start_delete(call):
     delete_group_handler.delete(call)
 
 # --АБОНЕМЕНТЫ--
 
-@bot.callback_query_handler(func=lambda call:call.data == 'subscriptions')
-def abonements(call):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('+ Создать', callback_data='create_subscription'))
-    markup.add(types.InlineKeyboardButton('⬅️Назад', callback_data='admin_panel'))
+# @bot.callback_query_handler(func=lambda call:call.data == 'subscriptions')
+# def abonements(call):
+#     markup = types.InlineKeyboardMarkup()
+#     markup.add(types.InlineKeyboardButton('+ Создать', callback_data='create_subscription'))
+#     markup.add(types.InlineKeyboardButton('⬅️Назад', callback_data='admin_panel'))
 
-    bot.edit_message_text(
-        '<b>Абонементы</b>',
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        reply_markup=markup,
-        parse_mode='HTML'
-    )
+#     bot.edit_message_text(
+#         '<b>Абонементы</b>',
+#         chat_id=call.message.chat.id,
+#         message_id=call.message.message_id,
+#         reply_markup=markup,
+#         parse_mode='HTML'
+#     )
 
 
-create_sub_handler = CreateSubscription(bot)
-@bot.callback_query_handler(func=lambda call:call.data == 'create_subscription')
-def start_create(call):
-    create_sub_handler.find_user(call)
+# create_sub_handler = CreateSubscription(bot)
+# @bot.callback_query_handler(func=lambda call:call.data == 'create_subscription')
+# def start_create(call):
+#     create_sub_handler.find_user(call)
     
 
-@bot.callback_query_handler(func=lambda call:call.data == 'confirm_create_sub')
-def choose_day(call):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('Пн/Ср/Пт', callback_data='m_w_f'))
-    markup.add(types.InlineKeyboardButton('Вт/Чт/Сб', callback_data='t_t_s'))
-    markup.add(types.InlineKeyboardButton('Сб/Вс', callback_data='s_s'))
-    markup.add(types.InlineKeyboardButton('❌ Отменить', callback_data='cancel_create_sub'))
+# @bot.callback_query_handler(func=lambda call:call.data == 'confirm_create_sub')
+# def choose_day(call):
+#     markup = types.InlineKeyboardMarkup()
+#     markup.add(types.InlineKeyboardButton('Пн/Ср/Пт', callback_data='m_w_f'))
+#     markup.add(types.InlineKeyboardButton('Вт/Чт/Сб', callback_data='t_t_s'))
+#     markup.add(types.InlineKeyboardButton('Сб/Вс', callback_data='s_s'))
+#     markup.add(types.InlineKeyboardButton('❌ Отменить', callback_data='cancel_create_sub'))
 
-    bot.edit_message_text(
-        text = 'Выберите дни: ',
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        reply_markup=markup,
-    )
+#     bot.edit_message_text(
+#         text = 'Выберите дни: ',
+#         chat_id=call.message.chat.id,
+#         message_id=call.message.message_id,
+#         reply_markup=markup,
+#     )
 
-@bot.callback_query_handler(func=lambda call:call.data in ['m_w_f', 't_t_s', 's_s'])
-def groups(call):
-    if call.data == 'm_w_f':
-        create_sub_handler.groups_list_mon(call)
+# @bot.callback_query_handler(func=lambda call:call.data in ['m_w_f', 't_t_s', 's_s'])
+# def groups(call):
+#     if call.data == 'm_w_f':
+#         create_sub_handler.groups_list_mon(call)
 
-    elif call.data == 't_t_s':
-        create_sub_handler.groups_list_tue(call)
+#     elif call.data == 't_t_s':
+#         create_sub_handler.groups_list_tue(call)
 
-    elif call.data == 's_s':
-        create_sub_handler.groups_list_sun(call)
+#     elif call.data == 's_s':
+#         create_sub_handler.groups_list_sun(call)
 
 sub_handler = SubscriptionHandler(bot)
 
 
 
-
-
-
-    
 
 
 

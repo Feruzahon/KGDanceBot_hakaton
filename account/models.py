@@ -4,9 +4,9 @@ from .manager import UserManager
 
 class User(models.Model):
     ROLES = (
-        ('student','ученик'),
+        ('child','ребёнок'),
         ('parent', 'родитель'),
-        ('user', 'пользователь'),
+        ('student', 'ученик'),
         ('admin','админ')
     )
     telegram_id = models.BigIntegerField(unique=True,null=True, blank=True)
