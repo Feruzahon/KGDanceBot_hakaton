@@ -35,6 +35,9 @@ class GroupDetailView(generics.RetrieveUpdateAPIView):
 
 class GetGroupUsersView(APIView):
     authentication_classes = [TelegramAuthentication]
+    #
+    permission_classes= [IsAdmin] #теперь только админ может видеть всех пользователей
+    #
 
     def get(self, requests, group_id):
         group = Group.objects.get(id=group_id)
@@ -52,9 +55,50 @@ class GroupDeleteAPIView(APIView):
             return Response({"datail":"Группа успешно удалена"})
         except ProtectedError:
             return Response({"detail":"❌ Невозможно удалить группу: в ней есть активные абонементы"}, status=400)
+ ###       
+class AddUserToGroupView(APIView):
+    authentication_classes = [TelegramAuthentication]
+
+    def patch(self,request):
+        group_id = request.data.get('group_id')
+        user_id = request.data.get('user_id')
+
+        group = Group.objects.get(id = group_id)
+        user = User.objects.get(id = user_id)
+
+        if user in group.users.all():
+            return Response({"detail":"⚠️ Пользователь уже в группе"}, status= 400)
         
+        if not group.can_add_user():
+            return Response({"detail":"⚠️ Нет свободных мест"},status=400)
         
-@api_view(['PATCH'])
+        group.users.add(user)
+
+        return Response({
+            "detail":"Пользователь добавлен",
+            "group": group.as_text(),
+            "free_slots": group.free_slots(),
+            "users_now": group.get_users_count()
+        }, status= 200)
+
+class DeleteUserFromGroupView(APIView):
+    authentication_classes= [TelegramAuthentication]
+
+    def patch(self, request):
+        group_id = request.data.get('group_id')
+        telegram_id = request.data.get('telegram_id')
+
+        group = Group.objects.get(id = group_id)
+        user = User.objects.get(telegram_id = telegram_id)
+
+        group.user.remove(user)
+        return Response({
+            "detail":"Пользователь удалён",
+            "free_slots": group.free_slots(),
+        }, status=200)
+
+
+"""@api_view(['PATCH'])
 @authentication_classes([TelegramAuthentication])
 def add_user_to_group(request):
     group_id = request.data.get('group_id')
@@ -62,6 +106,12 @@ def add_user_to_group(request):
 
     group = Group.objects.get(id=group_id)
     user = User.objects.get(id=user_id)
+
+    #
+    if user in group.users.all():
+        return Response({"detail:" "Пользователь уже состоит в этой группе"}, status=400)
+    #
+
     group.users.add(user)
     return Response({'last_name':f"{user.last_name}", 'first_name':f"{user.first_name}", 'group_title':f"{group.title}",'group_time':f"{group.time}",'group_days':f"{group.days}"}, status=200)
 
@@ -75,3 +125,5 @@ def delete_user_from_group(request):
     user = User.objects.get(telegram_id=telegram_id)
     group.users.remove(user)
     return Response({'group_days':f'{group.days}'})
+
+"""

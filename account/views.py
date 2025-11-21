@@ -6,7 +6,7 @@ from rest_framework import generics
 from .models import  User
 from .serializers import UserSerializer
 from .auth import TelegramAuthentication
-from .permissions import IsParentOrAdmin
+from .permissions import IsParentOrAdmin,IsParentOfChild,IsAdmin
 
 
 class TelegramRegisterView(APIView):
@@ -32,13 +32,13 @@ class TelegramLoginView(APIView):
 class ChildRegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    # permission_classes = [IsParentOrAdmin]
     authentication_classes = [TelegramAuthentication]
+    permission_classes = [IsParentOrAdmin]
 
 
 class CheckRoleView(APIView):
     authentication_classes = [TelegramAuthentication]
-
+    
     def post(self, request):
         telegram_id = request.data.get('telegram_id')
         user = get_object_or_404(User, telegram_id=telegram_id)
@@ -46,16 +46,21 @@ class CheckRoleView(APIView):
     
 class GetChildsView(APIView):
     authentication_classes = [TelegramAuthentication]
-    
+    permission_classes = [IsParentOfChild]
+
     def get(self, request):
         user_id = request.query_params.get('user_id')
         parent = User.objects.get(id=user_id)
+
+        self.check_object_permissions(request,parent)#обязвтельный - родитель имеет права видеть только своего ребенка 
+
         children = parent.children.all()
         serializer = UserSerializer(children, many=True)
         return Response(serializer.data)
     
 class GetUserView(APIView):
     authentication_classes = [TelegramAuthentication]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
         phone = request.query_params.get('phone')
