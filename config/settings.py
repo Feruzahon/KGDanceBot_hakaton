@@ -46,11 +46,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
+    'drf-yasg',#добавила
 
     'account',
     'group',
     'subscription',
-    'bot'
+    'bot',
+    'review'
 ]
 
 MIDDLEWARE = [
