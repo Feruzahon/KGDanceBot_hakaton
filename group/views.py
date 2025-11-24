@@ -4,7 +4,10 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, authentication_classes
 from django.db.models import ProtectedError
-
+#
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi 
+#
 from .models import Group
 from .serializers import GroupSerializer
 from account.permissions import IsAdmin
@@ -18,8 +21,32 @@ class GroupCreateView(generics.CreateAPIView):
     permission_classes = [IsAdmin]
     authentication_classes = [TelegramAuthentication]
 
+    @swagger_auto_schema(
+        operation_summary="Создать новую группу",
+        operation_description="Только администратор может создать новую группу ",
+        tags=["Group"],
+        responses={201: GroupSerializer}
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
 class GroupListView(APIView):
     authentication_classes = [TelegramAuthentication]
+
+    @swagger_auto_schema(
+        operation_summary="Список групп по дням",
+        operation_description="Возвращает список групп, фильтруя по дням недели",
+        tags=["Group"],
+        manual_parameters=[
+            openapi.Parameter(
+                'days',
+                openapi.IN_QUERY,
+                description="Дни недели (например: 'mon/wed/fri')",
+                type=openapi.TYPE_STRING
+            )
+        ],
+        responses={200: GroupSerializer(many=True)}
+    )
 
     def get(self, request):
         days = request.query_params.get('days')
@@ -33,12 +60,36 @@ class GroupDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdmin]
     authentication_classes = [TelegramAuthentication]
 
+    @swagger_auto_schema(
+        operation_summary="Получить или обновить группу",
+        operation_description="Только администратор может обновлять группу",
+        tags=["Group"],
+        responses={200: GroupSerializer}
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="Обновить группу",
+        operation_description="Только администратор может обновлять группу",
+        tags=["Group"],
+        responses={200: GroupSerializer}
+    )
+    def put(self, request, *args, **kwargs):
+        return super().put(request, *args, **kwargs)
+
 class GetGroupUsersView(APIView):
     authentication_classes = [TelegramAuthentication]
     #
     permission_classes= [IsAdmin] #теперь только админ может видеть всех пользователей
-    #
 
+    @swagger_auto_schema(
+        operation_summary="Список пользователей группы",
+        operation_description="Только администратор может видеть всех пользователей группы",
+        tags=["Group"],
+        responses={200: UserSerializer(many=True)}
+    )
+    #
     def get(self, requests, group_id):
         group = Group.objects.get(id=group_id)
         users = group.users.all()
@@ -47,6 +98,13 @@ class GetGroupUsersView(APIView):
 
 class GroupDeleteAPIView(APIView):
     authentication_classes = [TelegramAuthentication]
+
+    @swagger_auto_schema(
+        operation_summary="Удалить группу",
+        operation_description="Только администратор может удалить группу",
+        tags=["Group"],
+        responses={200: "Группа удалена", 400: "Ошибка удаления"}
+    )
 
     def delete(self, request, pk):
         try:
@@ -58,6 +116,21 @@ class GroupDeleteAPIView(APIView):
  ###       
 class AddUserToGroupView(APIView):
     authentication_classes = [TelegramAuthentication]
+
+    @swagger_auto_schema(
+        operation_summary="Добавить пользователя в группу",
+        operation_description="Добавляет пользователя в указанную группу, проверяет свободные места",
+        tags=["Group"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['group_id','user_id'],
+            properties={
+                'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+            }
+        ),
+        responses={200: "Пользователь добавлен", 400: "Ошибка добавления"}
+    )
 
     def patch(self,request):
         group_id = request.data.get('group_id')
@@ -84,6 +157,21 @@ class AddUserToGroupView(APIView):
 class DeleteUserFromGroupView(APIView):
     authentication_classes= [TelegramAuthentication]
 
+    @swagger_auto_schema(
+        operation_summary="Удалить пользователя из группы",
+        operation_description="Удаляет пользователя из группы по telegram_id",
+        tags=["Group"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['group_id','telegram_id'],
+            properties={
+                'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                'telegram_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+            }
+        ),
+        responses={200: "Пользователь удалён"}
+    )
+    
     def patch(self, request):
         group_id = request.data.get('group_id')
         telegram_id = request.data.get('telegram_id')
