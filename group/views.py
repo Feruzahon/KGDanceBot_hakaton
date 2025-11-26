@@ -1,3 +1,132 @@
+"""from rest_framework.viewsets import ViewSet
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from django.db.models import ProtectedError
+
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+from .models import Group
+from .serializers import GroupSerializer
+from account.models import User
+from account.serializers import UserSerializer
+from account.permissions import IsAdmin
+from account.auth import TelegramAuthentication
+
+
+class GroupViewSet(ViewSet):
+    authentication_classes = [TelegramAuthentication]
+
+    # 1) Список всех групп
+    @swagger_auto_schema(
+        operation_summary="Список всех групп",
+        tags=["Group"],
+        responses={200: GroupSerializer(many=True)}
+    )
+    def list(self, request):
+        groups = Group.objects.all().order_by('time')
+        return Response(GroupSerializer(groups, many=True).data)
+
+    # 2) Создать группу
+    @swagger_auto_schema(
+        operation_summary="Создать новую группу (только админ)",
+        tags=["Group"],
+        request_body=GroupSerializer,
+        responses={201: GroupSerializer}
+    )
+    def create(self, request):
+        if not request.user.is_admin:
+            return Response({"detail": "Нет прав"}, status=403)
+        serializer = GroupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=201)
+
+    # 3) Получить одну группу
+    @swagger_auto_schema(
+        operation_summary="Получить информацию о группе",
+        tags=["Group"],
+        responses={200: GroupSerializer}
+    )
+    def retrieve(self, request, pk=None):
+        group = Group.objects.get(id=pk)
+        return Response(GroupSerializer(group).data)
+
+    # 4) Обновить группу
+    @swagger_auto_schema(
+        operation_summary="Обновить группу (только админ)",
+        tags=["Group"],
+        request_body=GroupSerializer,
+        responses={200: GroupSerializer}
+    )
+    def update(self, request, pk=None):
+        if not request.user.is_admin:
+            return Response({"detail": "Нет прав"}, status=403)
+
+        group = Group.objects.get(id=pk)
+        serializer = GroupSerializer(group, data=request.data, partial=False)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    # 5) Удалить группу
+    @swagger_auto_schema(
+        operation_summary="Удалить группу",
+        tags=["Group"],
+        responses={200: "Группа удалена", 400: "Ошибка"}
+    )
+    def destroy(self, request, pk=None):
+        try:
+            Group.objects.get(id=pk).delete()
+            return Response({"detail": "Группа удалена"})
+        except ProtectedError:
+            return Response({"detail": "Активные абонементы — удаление запрещено"}, status=400)
+
+
+from rest_framework.decorators import action
+
+class GroupViewSet(ViewSet):
+    ...
+    
+    @action(detail=True, methods=['patch'], url_path='add-user')
+    @swagger_auto_schema(
+        operation_summary="Добавить пользователя в группу",
+        tags=["Group"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['user_id'],
+            properties={'user_id': openapi.Schema(type=openapi.TYPE_INTEGER)}
+        )
+    )
+    def add_user(self, request, pk=None):
+        group = Group.objects.get(id=pk)
+        user = User.objects.get(id=request.data.get('user_id'))
+
+        if user in group.users.all():
+            return Response({"detail": "⚠️ Пользователь уже в группе"}, status=400)
+
+        if not group.can_add_user():
+            return Response({"detail": "⚠️ Нет свободных мест"}, status=400)
+
+        group.users.add(user)
+        return Response({"detail": "Пользователь добавлен"})
+    @action(detail=True, methods=['patch'], url_path='remove-user')
+    @swagger_auto_schema(
+        operation_summary="Удалить пользователя из группы",
+        tags=["Group"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['telegram_id'],
+            properties={'telegram_id': openapi.Schema(type=openapi.TYPE_INTEGER)}
+        )
+    )
+    def remove_user(self, request, pk=None):
+        group = Group.objects.get(id=pk)
+        user = User.objects.get(telegram_id=request.data.get('telegram_id'))
+        group.users.remove(user)
+        return Response({"detail": "Пользователь удалён"})
+
+"""
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -14,6 +143,10 @@ from account.permissions import IsAdmin
 from account.auth import TelegramAuthentication
 from account.models import User
 from account.serializers import UserSerializer
+"""
+
+
+"""
 
 class GroupCreateView(generics.CreateAPIView):
     queryset = Group.objects.all()
@@ -186,7 +319,7 @@ class DeleteUserFromGroupView(APIView):
         }, status=200)
 
 
-"""@api_view(['PATCH'])
+@api_view(['PATCH'])
 @authentication_classes([TelegramAuthentication])
 def add_user_to_group(request):
     group_id = request.data.get('group_id')
@@ -214,4 +347,4 @@ def delete_user_from_group(request):
     group.users.remove(user)
     return Response({'group_days':f'{group.days}'})
 
-"""
+

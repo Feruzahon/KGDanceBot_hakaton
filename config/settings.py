@@ -46,13 +46,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',
-    'drf-yasg',#добавила
+    'drf_yasg',#добавила
 
     'account',
     'group',
     'subscription',
     'bot',
-    'review'
+    'review',
 ]
 
 MIDDLEWARE = [
@@ -143,9 +143,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'account.auth.TelegramAuthentication'
-    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'account.auth.TelegramAuthentication',
+    ],
     'DATETIME_FORMAT': "%d.%m.%Y %H:%M",
     'DATE_FORMAT': "%d.%m.%Y",
 }
