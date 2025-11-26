@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from account.models import User
+from account.models import CustomUser
 from .models import Subscription
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -16,8 +16,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', read_only=True)
 
     def create(self, validated_data):
-        telegram_id = validated_data.pop('user')
-        user = User.objects.get(telegram_id=telegram_id)
+        id = validated_data.pop('user')
+        user = CustomUser.objects.get(id=id)
         subscription = Subscription.objects.create(user=user, **validated_data)
         return subscription
  

@@ -1,6 +1,6 @@
 from django.db import models
 
-from account.models import User
+from account.models import CustomUser
 
 class Group(models.Model):
     DAYS = (
@@ -9,7 +9,7 @@ class Group(models.Model):
         ('sat/sun','сб/вс')
     )
     title = models.CharField(max_length=100)
-    users = models.ManyToManyField(User, related_name='groups', blank=True)
+    users = models.ManyToManyField(CustomUser, related_name='custom_groups', blank=True)
     time = models.TimeField(blank=True, null=True)
     days = models.CharField(max_length=50, choices=DAYS, null=True)
     age = models.CharField(max_length=100, default='Все')

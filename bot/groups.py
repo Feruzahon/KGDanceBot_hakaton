@@ -6,8 +6,9 @@ API_URL = "http://127.0.0.1:8000/group/"
 
 # to-do добавить функции отмены создания, редактирования
 class CreateGroup:
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
+        self.auth = auth
         self.group_data = {}
         self.bot.callback_query_handler(func=lambda call:call.data in ['mon/wed/fri', 'tue/thu/sat', 'sat/sun'])(self.choose_day)
 
@@ -54,34 +55,33 @@ class CreateGroup:
 
     def choose_day(self, call):
         telegram_id = call.from_user.id
+        chat_id=call.message.chat.id
         days = call.data
 
         data = {
             'title':self.group_data[call.message.chat.id]['title'],
             'time':self.group_data[call.message.chat.id]['time'],
             'age':self.group_data[call.message.chat.id]['age'],
-            'days':days
+            'days':days,
+            'role':self.auth.sessions[chat_id]['user']['role']
         }
     
         try:
-            response = requests.post(f'{API_URL}create/', headers={'X-Telegram-Id':str(telegram_id)}, json=data)
-            if response.status_code == 201:
-                self.bot.send_message(call.message.chat.id, f'Группа "{self.group_data[call.message.chat.id]['title']} {self.group_data[call.message.chat.id]['time']}" создана. ✅')
+            response = self.auth.post(chat_id, f'group/create/', data)
+            if response.status_code in  [200,201]:
+                self.bot.send_message(chat_id, f'Группа "{self.group_data[call.message.chat.id]['title']} {self.group_data[call.message.chat.id]['time']}" создана. ✅')
             else:
-                error_text=f'Ошибка при создании: {response.status_code}\n{response.text}\n{call.message.text}'
-                if len(error_text) > 1000:
-                    error_text = error_text[:1000] + '...'
-                self.bot.send_message(call.message.chat.id, error_text)
+                self.bot.send_message(call.message.chat.id, f'Ошибка при создании: {response.status_code} {response.text}')
             
             self.bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
             from bot.main import list_group_handler
             if days == 'mon/wed/fri':
-                list_group_handler.groups_list_mon(call.message.chat.id, telegram_id, call.message.message_id)
+                list_group_handler.groups_list_mon(call.message.chat.id, call.message.message_id)
             elif days == 'tue/thu/sat':
-                list_group_handler.groups_list_tue(call.message.chat.id, telegram_id, call.message.message_id)
+                list_group_handler.groups_list_tue(call.message.chat.id, call.message.message_id)
             elif days == 'sat/sun':
-                list_group_handler.groups_list_sun(call.message.chat.id, telegram_id, call.message.message_id)
+                list_group_handler.groups_list_sun(call.message.chat.id, call.message.message_id)
 
         except Exception as e:
             self.bot.send_message(call.message.chat.id, f'Ошибка при создании: {e}')
@@ -92,11 +92,12 @@ class CreateGroup:
 
 
 class ListGroup:
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
+        self.auth=auth
 
-    def _send_groups(self, chat_id, telegram_id, days, message_id=None):
-        response = requests.get(f'{API_URL}list/', headers={"X-Telegram-Id": str(telegram_id)}, params={"days": days})
+    def _send_groups(self, chat_id, days, message_id=None):
+        response = self.auth.get(chat_id, 'group/list/', params={"days": days})
         if response.status_code != 200:
             self.bot.send_message(chat_id, f'Ошибка: {response.status_code} {response.text}')
             return
@@ -135,14 +136,14 @@ class ListGroup:
                     reply_markup=markup
             )
 
-    def groups_list_mon(self, chat_id, telegram_id, message_id=None):
-        self._send_groups(chat_id, telegram_id, "mon/wed/fri", message_id)
+    def groups_list_mon(self, chat_id, message_id=None):
+        self._send_groups(chat_id, "mon/wed/fri", message_id)
 
-    def groups_list_tue(self, chat_id, telegram_id, message_id=None):
-        self._send_groups(chat_id, telegram_id, "tue/thu/sat", message_id)
+    def groups_list_tue(self, chat_id, message_id=None):
+        self._send_groups(chat_id, "tue/thu/sat", message_id)
 
-    def groups_list_sun(self, chat_id, telegram_id, message_id=None):
-        self._send_groups(chat_id, telegram_id, "sat/sun", message_id)
+    def groups_list_sun(self, chat_id, message_id=None):
+        self._send_groups(chat_id, "sat/sun", message_id)
 
     def _days_display(self, days):
         return {'mon/wed/fri':'Пн/Ср/Пт','tue/thu/sat':'Вт/Чт/Сб','sat/sun':'Сб/Вс'}.get(days, days)
@@ -152,8 +153,9 @@ class ListGroup:
 
 class DetailGroup:
 
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
+        self.auth = auth
         self.group_id = {}
         self.user_to_add = {}
 
@@ -167,8 +169,8 @@ class DetailGroup:
     def detail_group(self, call):
         group_id = call.data.split('_')[2] 
         self.group_id[call.message.chat.id] = group_id
-        telegram_id=call.from_user.id
-        response = requests.get(f"{API_URL}detail/{group_id}/", headers={'X-Telegram-Id':str(telegram_id)})
+        chat_id=call.message.chat.id
+        response = self.auth.get(chat_id, f"group/detail/{group_id}/")
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Список учеников", callback_data=f'users_list_{group_id}'))
         if response.status_code == 200:
@@ -208,21 +210,21 @@ class DetailGroup:
 
     
     def users_list(self, call): 
-        telegram_id=call.from_user.id
+        chat_id = call.message.chat.id
         group_id = call.data.split('_')[2]
 
-        response = requests.get(f"{API_URL}get_group_users/{group_id}", headers={'X-Telegram-Id':str(call.from_user.id)})
+        response = self.auth.get(chat_id, f"group/get_group_users/{group_id}")
         users = response.json()
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("+ Добавить клиента в группу", callback_data=f'add_client'))
 
         count = 0
         for user in users:
-            telegram_id = user['telegram_id']
+            id = user['id']
             first_name = user['first_name']
             last_name = user['last_name']
             count += 1
-            markup.add(types.InlineKeyboardButton(f"{count}. {last_name} {first_name}", callback_data=f'group_user_{telegram_id}_{group_id}'))
+            markup.add(types.InlineKeyboardButton(f"{count}. {last_name} {first_name}", callback_data=f'group_user_{id}_{group_id}'))
         markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data=f'group_detail_{group_id}'))
 
         self.bot.edit_message_text(text='<b>Список учеников</b>',
@@ -238,6 +240,7 @@ class DetailGroup:
                                                        )
         
     def get_phone(self, message):
+        chat_id = message.chat.id
         phone = message.text.strip()
 
         if phone.startswith('9'):
@@ -247,7 +250,7 @@ class DetailGroup:
             self.bot.register_next_step_handler(message, lambda msg: self.get_phone(msg))
             return
         
-        response = requests.get(f'http://127.0.0.1:8000/account/get_user/', headers={'X-Telegram-Id':str(message.from_user.id)} ,params={'phone':phone})
+        response = self.auth.get(chat_id, f'/account/get_user/', params={'phone':phone})
         try:
             if response.status_code == 200:
                 data=response.json()
@@ -292,11 +295,11 @@ class DetailGroup:
     def get_childs(self, message, user_id, telegram_id=None):
         if telegram_id == None:
             telegram_id = message.from_user.id
+        chat_id = message.chat.id
         try:
-            response = requests.get(f"{'http://127.0.0.1:8000/account/get_childs/'}", headers={'X-Telegram-Id':str(telegram_id)}, params={'user_id':user_id})
+            response = self.auth.get(chat_id, f"account/get_childs/", params={'user_id':user_id})
             if response.status_code == 200:
                 data = response.json()
-                print(data)
                 markup = types.InlineKeyboardMarkup()
                 for child in data:
                     child_first_name = child.get('first_name')
@@ -356,15 +359,13 @@ class DetailGroup:
 
 # to-do добавить удаления кнопок после добавления
     def add_client(self, call):
-        print(0)
         chat_id = call.message.chat.id
-        telegram_id = call.from_user.id
         data = {
             'user_id':self.user_to_add[chat_id]['user_id'],
             'group_id':self.group_id[chat_id]
         }
         try:
-            response = requests.patch(f"{API_URL}add_user/", json=data, headers={'X-Telegram-Id':str(telegram_id)})
+            response = self.auth.patch(chat_id, "group/add_user/", data)
             if response.status_code == 200:
                 r_data = response.json()
                 self.bot.send_message(chat_id, f'Добавлен новый пользователь {self.user_to_add[chat_id]["last_name"]} {self.user_to_add[chat_id]["first_name"]} в группу "{r_data["group_title"]} {r_data["group_time"][:5]}"')
@@ -373,11 +374,11 @@ class DetailGroup:
 
                 from bot.main import list_group_handler
                 if r_data['group_days'] == 'mon/wed/fri':
-                    list_group_handler.groups_list_mon(chat_id, telegram_id, call.message.message_id)
+                    list_group_handler.groups_list_mon(chat_id, call.message.message_id)
                 elif r_data['group_days'] == 'tue/thu/sat':
-                    list_group_handler.groups_list_tue(chat_id, telegram_id, call.message.message_id)
+                    list_group_handler.groups_list_tue(chat_id, call.message.message_id)
                 elif r_data['group_days'] == 'sat/sun':
-                    list_group_handler.groups_list_sun(chat_id, telegram_id, call.message.message_id)
+                    list_group_handler.groups_list_sun(chat_id, call.message.message_id)
             else:   
                 self.bot.send_message(chat_id, f'Ошибка при добавлении: {response.status_code} {response.text}')    
         except Exception as e:
@@ -390,9 +391,10 @@ class DetailGroup:
 
 class DetailGroupUser:
     
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
-
+        self.auth = auth
+        
         self.bot.callback_query_handler(func=lambda call:call.data.startswith('mark_attendance_'))(self.mark_attendance)
         self.bot.callback_query_handler(func=lambda call:call.data.startswith('delete_from_group_'))(self.confirm_delete)
         self.bot.callback_query_handler(func=lambda call:call.data.startswith('confirm_delete_user_'))(self.delete_user)
@@ -400,20 +402,20 @@ class DetailGroupUser:
     
 
     def get_user_subs(self, call):  
-        telegram_id = call.data.split('_')[2]
+        user_id = call.data.split('_')[2]
         group_id = call.data.split('_')[3]       
         chat_id = call.message.chat.id
         message_id = call.message.message_id
 
         try:
-            response = requests.get(f"http://127.0.0.1:8000/subscription/get_user_sub/{telegram_id}/", headers={'X-Telegram-Id':str(call.from_user.id)})
+            response = self.auth.get(chat_id, f"/subscription/get_user_sub/{user_id}/")
             if response.status_code == 200:
                 subscriptions = response.json()
 
                 markup = types.InlineKeyboardMarkup()
                 if not subscriptions:
-                     markup.add(types.InlineKeyboardButton('+ Создать абонемент', callback_data=f'create_sub_{telegram_id}_{group_id}'))
-                     markup.add(types.InlineKeyboardButton('Удалить из группы', callback_data=f'delete_from_group_{telegram_id}_{group_id}'))
+                     markup.add(types.InlineKeyboardButton('+ Создать абонемент', callback_data=f'create_sub_{user_id}_{group_id}'))
+                     markup.add(types.InlineKeyboardButton('Удалить из группы', callback_data=f'delete_from_group_{user_id}_{group_id}'))
                      markup.add(types.InlineKeyboardButton('⬅️Назад', callback_data=f'users_list_{group_id}'))
                      self.bot.edit_message_text(
                       '🤷🏻‍♂️ У этого клиента нет активных абонементов',
@@ -423,12 +425,10 @@ class DetailGroupUser:
                     )
                      return
                 
-                active_text = "<b>Активные абонементы:</b>\n\n"
-                inactive_text = "<b>Неактивные абонементы:</b>\n\n"
+                text = "<b>Активные абонементы:</b>\n\n"
                 for sub in subscriptions:
-                    print(sub)
                     if sub['group'] == int(group_id):
-                        active_text += (
+                        text += (
                         f" <b>{sub['last_name']}</b> <b>{sub['first_name']}</b>\n"
                         f"💃 <b>{sub['group_title']}</b> {sub['group_time'][:5]}\n"
                         f"📅 <b>{sub['start_date']}</b> — <b>{sub['end_date']}</b>\n"
@@ -445,47 +445,19 @@ class DetailGroupUser:
                                 else:
                                     mark = "❌"
 
-                            markup.add(types.InlineKeyboardButton(f'📅 {day.replace('-', '.')[:5]} {mark}', callback_data=f'mark_attendance_{sub['id']}_{day}_{telegram_id}_{group_id}'))
-                        markup.add(types.InlineKeyboardButton('Удалить абонемент', callback_data=f'confirm_delete_sub_{sub['id']}_{telegram_id}_{group_id}'))
+                            markup.add(types.InlineKeyboardButton(f'📅 {day.replace('-', '.')[:5]} {mark}', callback_data=f'mark_attendance_{sub['id']}_{day}_{user_id}_{group_id}'))
+                        markup.add(types.InlineKeyboardButton('Удалить абонемент', callback_data=f'confirm_delete_sub_{sub['id']}_{user_id}_{group_id}'))
                         markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data=f'users_list_{group_id}'))
-                        self.bot.edit_message_text(text=active_text,
+                        self.bot.edit_message_text(text=text,
                                            chat_id=chat_id,
                                            message_id=message_id,
                                            reply_markup=markup,
                                            parse_mode='HTML')
                         break
-
-                    # elif sub['group'] == int(group_id) and sub['is_active'] == False:
-                    #     inactive_text += (
-                    #     f" <b>{sub['last_name']}</b> <b>{sub['first_name']}</b>\n"
-                    #     f"💃 <b>{sub['group_title']}</b> {sub['group_time'][:5]}\n"
-                    #     f"📅 <b>{sub['start_date']}</b> — <b>{sub['end_date']}</b>\n"
-                    #     f"📊 <i>Посещено:</i> {sub['used_lessons']} из {sub['total_lessons']} занятий\n"
-                    #     f"────────────────────\n"
-                    #     )    
-                    #     attendance = sub['attendance'] 
-
-                    #     for day in sub['lesson_dates']:
-                    #         mark = ''
-                    #         if day in attendance:
-                    #             if attendance[day] == True:
-                    #                 mark = "✅"
-                    #             else:
-                    #                 mark = "❌"
-
-                    #         markup.add(types.InlineKeyboardButton(f'📅 {day.replace('-', '.')[:5]} {mark}', callback_data=f'mark_attendance_{sub['id']}_{day}_{telegram_id}_{group_id}'))
-                    #     markup.add(types.InlineKeyboardButton('Обновить абонемент', callback_data=f'update_sub_{sub['id']}'))
-                    #     markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data=f'users_list_{group_id}'))
-                    #     self.bot.edit_message_text(text=inactive_text,
-                    #                        chat_id=chat_id,
-                    #                        message_id=message_id,
-                    #                        reply_markup=markup,
-                    #                        parse_mode='HTML')
-                    #     break
                         
                 else:
-                    markup.add(types.InlineKeyboardButton('+ Создать абонемент', callback_data=f'create_sub_{telegram_id}_{group_id}'))
-                    markup.add(types.InlineKeyboardButton('Удалить из группы', callback_data=f'delete_from_group_{telegram_id}_{group_id}'))
+                    markup.add(types.InlineKeyboardButton('+ Создать абонемент', callback_data=f'create_sub_{user_id}_{group_id}'))
+                    markup.add(types.InlineKeyboardButton('Удалить из группы', callback_data=f'delete_from_group_{user_id}_{group_id}'))
                     markup.add(types.InlineKeyboardButton('⬅️Назад', callback_data=f'users_list_{group_id}'))
                     self.bot.edit_message_text(
                     '🤷🏻‍♂️ У этого клиента нет активных абонементов',
@@ -502,15 +474,15 @@ class DetailGroupUser:
     def mark_attendance(self, call):
         sub_id = call.data.split('_')[2]
         date = call.data.split('_')[3]
-        telegram_id = call.data.split('_')[4]
+        user_id = call.data.split('_')[4]
         group_id = call.data.split('_')[5]
 
         markup = types.InlineKeyboardMarkup()
         markup.row(
-            types.InlineKeyboardButton('✅', callback_data=f'set_attendance_1_{sub_id}_{date}_{telegram_id}_{group_id}'),
-            types.InlineKeyboardButton('❌', callback_data=f'set_attendance_0_{sub_id}_{date}_{telegram_id}_{group_id}')
+            types.InlineKeyboardButton('✅', callback_data=f'set_attendance_1_{sub_id}_{date}_{user_id}_{group_id}'),
+            types.InlineKeyboardButton('❌', callback_data=f'set_attendance_0_{sub_id}_{date}_{user_id}_{group_id}')
         )
-        markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data=f'group_user_{telegram_id}_{group_id}'))
+        markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data=f'group_user_{user_id}_{group_id}'))
 
         self.bot.edit_message_text(
             f"Отметка посещаемости на <b>{date}</b>",
@@ -524,22 +496,19 @@ class DetailGroupUser:
         status = int(call.data.split('_')[2])
         sub_id = call.data.split('_')[3]
         date = call.data.split('_')[4]
-        telegram_id = call.data.split('_')[5]
-        group_id = call.data.split('_')[6]
+        chat_id = call.message.chat.id
 
         data = {
             'date':date,
             'status':status
         }
 
-        response = requests.patch(f"http://127.0.0.1:8000/subscription/mark_attendance/{sub_id}/", json=data, headers={'X-Telegram-Id':str(call.from_user.id)})
+        response = self.auth.patch(chat_id, f"subscription/mark_attendance/{sub_id}/", data)
         sub_data = response.json()
-        print(sub_data)
         if len(sub_data['attendance']) == sub_data['total_lessons']:
             self.bot.answer_callback_query(call.id, 'Абонемент закончился.', show_alert=True)
 
         self.bot.answer_callback_query(call.id, 'Отмечено')
-
 
 
     def confirm_delete(self, call):
@@ -556,15 +525,16 @@ class DetailGroupUser:
                                    reply_markup=markup)
         
     def delete_user(self, call):
-        telegram_id = call.data.split('_')[3]
+        user_id = call.data.split('_')[3]
         group_id = call.data.split('_')[4]
+        chat_id = call.message.chat.id
 
         data = {
-            'telegram_id':telegram_id,
+            'user_id':user_id,
             'group_id':group_id
         }
         try:
-            response = requests.patch(f"{API_URL}delete_user/", json=data, headers={"X-Telegram-Id":str(call.from_user.id)})
+            response = self.auth.patch(chat_id, "group/delete_user/", data)
             days = response.json().get('group_days')
             if response.status_code == 200:
                 self.bot.answer_callback_query(call.id, 'Пользователь успешно удален.')
@@ -573,11 +543,11 @@ class DetailGroupUser:
 
             from bot.main import list_group_handler
             if days == 'mon/wed/fri':
-                list_group_handler.groups_list_mon(call.message.chat.id, call.from_user.id, call.message.message_id)
+                list_group_handler.groups_list_mon(call.message.chat.id, call.message.message_id)
             elif days == 'tue/thu/sat':
-                list_group_handler.groups_list_tue(call.message.chat.id, call.from_user.id, call.message.message_id)
+                list_group_handler.groups_list_tue(call.message.chat.id, call.message.message_id)
             elif days == 'sat/sun':
-                list_group_handler.groups_list_sun(call.message.chat.id, call.from_user.id, call.message.message_id)
+                list_group_handler.groups_list_sun(call.message.chat.id, call.message.message_id)
         except Exception as e:
             self.bot.send_message(call.message.chat.id, f'Ошибка: {e}')
 
@@ -585,8 +555,9 @@ class DetailGroupUser:
 
 class UpdateGroup:
 
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
+        self.auth = auth
         self.edit_data = {}
         self.bot.callback_query_handler(func=lambda call: call.data in ['edit_title', 'edit_time', 'edit_days', 'mon/wed/fri', 'tue/thu/sat', 'sat/sun','save_changes', 'cancel_edit'])(self.callback_handler)
 
@@ -616,7 +587,7 @@ class UpdateGroup:
         elif call.data in ['mon/wed/fri', 'tue/thu/sat', 'sat/sun']:
             self.get_days(call)
         elif call.data == 'save_changes':
-            self.save_changes(call.message.chat.id,call.from_user.id,call.message)
+            self.save_changes(call.message.chat.id, call.message)
         elif call.data == 'cancel_edit':
             self.bot.send_message(call.message.chat.id, "Редактирование отменено ❌")
             self.edit_data.pop(call.message.chat.id, None)
@@ -630,7 +601,7 @@ class UpdateGroup:
         time_str = message.text.strip()
 
         try:
-            validate_time = datetime.strptime(time_str, '%H:%M')
+            datetime.strptime(time_str, '%H:%M')
         except ValueError:
             self.bot.send_message(message.chat.id, "❌ Неверный формат времени. Введите в формате ЧЧ:ММ (например, 18:30).")
             self.bot.register_next_step_handler(message, self.get_time)
@@ -647,11 +618,14 @@ class UpdateGroup:
         self.bot.send_message(call.message.chat.id, 'Выберите дни: ', reply_markup=markup)
 
     def get_days(self, call):
+        print(0)
         days = call.data
+        print(0)
         self.edit_data[call.message.chat.id]['data']['days'] = days
+        print(0)
         self.show_edit_menu(call.message.chat.id)
 
-    def save_changes(self, chat_id, telegram_id, message):
+    def save_changes(self, chat_id, message):
         group_id = self.edit_data[chat_id]['group_id']
         data = self.edit_data[chat_id]['data']
 
@@ -676,27 +650,23 @@ class UpdateGroup:
             changes.append(f"{k_display} : {v_display}")
         self.bot.send_message(chat_id, "Сохраняем изменения:\n" + "\n".join(changes))
 
-        get_days = requests.get(f'{API_URL}detail/{group_id}/', headers={'X-Telegram-Id':str(telegram_id)})
-        days = get_days.json().get('days')
-
         try:
-            response = requests.patch(
-                f'{API_URL}detail/{group_id}/',
-                json=data,
-                headers = {'X-Telegram-Id':str(telegram_id)})
+            response = self.auth.patch(chat_id, f'group/detail/{group_id}/', data)
             if response.status_code in [200,204]:
                 self.bot.send_message(message.chat.id, 
                                       f'Группа изменена. ✅ ')
             else:
                 self.bot.send_message(message.chat.id, f'Ошибка при редактировании: {response.status_code} {response.text}')
 
+            get_days = self.auth.get(chat_id, f'group/detail/{group_id}/')
+            days = get_days.json().get('days')
             from bot.main import list_group_handler
             if days == 'mon/wed/fri':
-                list_group_handler.groups_list_mon(message.chat.id, telegram_id, message.message_id)
+                list_group_handler.groups_list_mon(message.chat.id, message.message_id)
             elif days == 'tue/thu/sat':
-                list_group_handler.groups_list_tue(message.chat.id, telegram_id, message.message_id)
+                list_group_handler.groups_list_tue(message.chat.id, message.message_id)
             elif days == 'sat/sun':
-                list_group_handler.groups_list_sun(message.chat.id, telegram_id, message.message_id)
+                list_group_handler.groups_list_sun(message.chat.id, message.message_id)
 
         except Exception as e:
             self.bot.send_message(message.chat.id, f'Ошибка: {e}')
@@ -704,20 +674,17 @@ class UpdateGroup:
             self.edit_data.pop(message.chat.id)
 
             
-
 class DeleteGroup:
     
-    def __init__(self, bot):
+    def __init__(self, bot, auth):
         self.bot = bot
+        self.auth=auth
 
     def delete(self, call):
-        telegram_id = call.from_user.id
-        group_id = call.data.split('_')[1]
+        group_id = call.data.split('_')[2]
+        chat_id=call.message.chat.id
         
-        get_days = requests.get(f'{API_URL}detail/{group_id}/', headers={'X-Telegram-Id':str(telegram_id)})
-        days = get_days.json().get('days')
-
-        response = requests.delete(f'{API_URL}delete/{group_id}/', headers={'X-Telegram-Id':str(telegram_id)})
+        response = self.auth.delete(chat_id, f'group/delete/{group_id}/')
 
         if response.status_code in [200, 204]:
             self.bot.send_message(call.message.chat.id, 'Группа удалена. ✅')
@@ -725,12 +692,15 @@ class DeleteGroup:
             self.bot.send_message(call.message.chat.id, "❌ Невозможно удалить группу: в ней есть активные абонементы")
         else:
             self.bot.send_message(call.message.chat.id, f'Ошибка при удалении: {response.status_code} {response.text}')
-            
+
+        get_days = self.auth.get(chat_id, f'group/detail/{group_id}/')
+        days = get_days.json().get('days')
+
         from bot.main import list_group_handler
         if days == 'mon/wed/fri':
-            list_group_handler.groups_list_mon(call.message.chat.id, telegram_id, call.message.message_id)
+            list_group_handler.groups_list_mon(call.message.chat.id, call.message.message_id)
         elif days == 'tue/thu/sat':
-            list_group_handler.groups_list_tue(call.message.chat.id, telegram_id, call.message.message_id)
+            list_group_handler.groups_list_tue(call.message.chat.id, call.message.message_id)
         elif days == 'sat/sun':
-            list_group_handler.groups_list_sun(call.message.chat.id, telegram_id, call.message.message_id)
+            list_group_handler.groups_list_sun(call.message.chat.id, call.message.message_id)
 

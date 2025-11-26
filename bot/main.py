@@ -3,10 +3,10 @@ from telebot import types
 import requests
 from decouple import config
 
-from bot.auth import Register, ChildRegister
+from bot.auth import Auth, ChildRegister
 from bot.groups import CreateGroup, ListGroup, DetailGroup, DetailGroupUser, UpdateGroup, DeleteGroup
 from bot.subscriptions import SubscriptionHandler
-from .utils import show_menu
+from .utils import show_menu, AuthManager
 
 
 TOKEN = config('TG_TOKEN')
@@ -14,18 +14,26 @@ bot = telebot.TeleBot(TOKEN)
 API_URL = 'http://127.0.0.1:8000/'
 WEBHOOK_URL = 'https://lena-nonmetalliferous-pura.ngrok-free.dev/webhook/'
 
-
 requests.get(f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={WEBHOOK_URL}",)
 
+auth=AuthManager()
 
-
-register_handler = Register(bot)
+register_handler = Auth(bot, auth)
 @bot.message_handler(commands=['start'])
 def authentication(message):
-    register_handler.authentication(message)
+    register_handler.start_auth(message)
+
+@bot.message_handler(commands=['login'])
+def login(message):
+    register_handler.login_by_command(message)
+
+@bot.message_handler(commands=['logout'])
+def logout(message):
+    chat_id = message.chat.id
+    auth.logout(chat_id)
+    bot.send_message(chat_id, 'Вы вышли с аккаунта. До свидания!')
     
-    
-child_register_handler = ChildRegister(bot)
+child_register_handler = ChildRegister(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data == 'register_child')
 def register_child_handler(call):
     child_register_handler.child_register(call)
@@ -33,19 +41,38 @@ def register_child_handler(call):
 # ----------ГЛАВНОЕ МЕНЮ-----------
 @bot.message_handler(commands=['menu'])
 def menu_handler(message):
-    telegram_id = message.from_user.id
-    response = requests.post(f'{API_URL}account/role/', json={'telegram_id':telegram_id}, headers={'X-Telegram-Id':str(telegram_id)})
-    if response.status_code == 200:
-        role = response.json().get('role')
-        show_menu(bot, role, message.chat.id)
+    chat_id = message.chat.id
+    if not auth.is_authenticated(chat_id):
+        bot.send_message(chat_id, "Вы не авторизованы. Введите /login")
+        return
+    try:
+        response = auth.get(chat_id, f'account/check_role/')
+        if response.status_code == 200:
+            role = response.json().get('role')
+            show_menu(bot, role, message.chat.id)
+        else:
+            bot.send_message(chat_id, f'Ошибка: {response.status_code} {response.text}')
+    except Exception as e:
+        bot.send_message(chat_id, f'Ошибка: {e}')
+    
+    
 
 @bot.callback_query_handler(func=lambda call:call.data == 'menu')
 def menu(call):
-    telegram_id = call.from_user.id
-    response = requests.post(f'{API_URL}account/role/', json={'telegram_id':telegram_id}, headers={'X-Telegram-Id':str(telegram_id)})
-    if response.status_code == 200:
-        role = response.json().get('role')
-        show_menu(bot, role ,call.message.chat.id, call.message.message_id, edit=True)
+    chat_id = call.message.chat.id
+    if not auth.is_authenticated(chat_id):
+        bot.send_message(chat_id, "Вы не авторизованы. Введите /login")
+        return
+    try:
+        response = auth.get(chat_id, f'account/check_role/')
+        if response.status_code == 200:
+            role = response.json().get('role')
+            show_menu(bot, role ,call.message.chat.id, call.message.message_id, edit=True)
+        else:
+            bot.send_message(chat_id, f'Ошибка: {response.status_code} {response.text}')
+    except Exception as e:
+        bot.send_message(chat_id, f'Ошибка: {e}')
+    
 
 @bot.callback_query_handler(func=lambda call: call.data == 'exit')
 def exit(call):
@@ -70,8 +97,8 @@ def timetable_handler(call):
 @bot.callback_query_handler(func=lambda call:call.data.startswith('timetable_'))
 def days_handler(call):
     days = call.data.split('_')[1]
-    print(days)
-    response = requests.get(f"{API_URL}/group/list/", params={'days':days}, headers={"X-Telegram-Id":str(call.from_user.id)})
+    chat_id = call.message.chat.id
+    response = auth.get(chat_id, f"group/list/", params={'days':days})
     if response.status_code == 200:
         groups = response.json()
         markup = types.InlineKeyboardMarkup()
@@ -79,7 +106,6 @@ def days_handler(call):
             title = group['title']
             time = group['time'][:5]
             age = group['age']
-            group_id = group['id']
             markup.add(types.InlineKeyboardButton(f"{time} {title} Возраст: {age}", callback_data='/'))
         markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data='timetable'))
 
@@ -124,13 +150,23 @@ def adress_contacts(call):
 # -------------ПАНЕЛЬ АДМИНИСТРАТОРА------------------
 @bot.message_handler(commands=['admin'])
 def check_role(message):
-        telegram_id = message.from_user.id
-        response = requests.post(f"{API_URL}account/role/", json={"telegram_id":telegram_id})
-        role = response.json().get('role')
-        if role == 'admin':
-            admin(message)
+    chat_id=message.chat.id
+    if not auth.is_authenticated(chat_id):
+        bot.send_message(chat_id, "Вы не авторизованы. Введите /login")
+        return
+    try:
+        response = auth.get(chat_id, f"account/check_role/")
+        if response.status_code == 200:
+            role = response.json().get('role')
+            if role == 'admin':
+                admin(message)
+            else:
+                bot.send_message(message.chat.id, "❌ Вы не можете использовать эту команду.")
         else:
-            bot.send_message(message.chat.id, "❌ Вы не можете использовать эту команду.")
+            bot.send_message(chat_id, f'Ошибка: {response.status_code} {response.text}')
+    except Exception as e:
+        bot.send_message(chat_id, f'Ошибка: {e}')
+            
         
             
 def admin(message):
@@ -179,41 +215,41 @@ def choose_days(call):
         reply_markup=markup
         )
     
-list_group_handler = ListGroup(bot)
+list_group_handler = ListGroup(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data in ['mon_wed_fri', 'tue_thu_sat', 'sat_sun'])
 def groups(call):
     if call.data == 'mon_wed_fri':
-        list_group_handler.groups_list_mon(call.message.chat.id, call.from_user.id, call.message.message_id)
+        list_group_handler.groups_list_mon(call.message.chat.id, call.message.message_id)
 
     elif call.data == 'tue_thu_sat':
-        list_group_handler.groups_list_tue(call.message.chat.id, call.from_user.id, call.message.message_id)
+        list_group_handler.groups_list_tue(call.message.chat.id, call.message.message_id)
 
     elif call.data == 'sat_sun':
-        list_group_handler.groups_list_sun(call.message.chat.id, call.from_user.id, call.message.message_id)
+        list_group_handler.groups_list_sun(call.message.chat.id, call.message.message_id)
         
-create_group_handler = CreateGroup(bot)
+create_group_handler = CreateGroup(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data == 'create_group')
 def start_create_group(call):
     create_group_handler.create_group(call)
 
-detail_group_handler = DetailGroup(bot)
+detail_group_handler = DetailGroup(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data.startswith('group_detail_'))
 def start_detail(call):
     detail_group_handler.detail_group(call)
 
-detail_user_handler = DetailGroupUser(bot)
+detail_user_handler = DetailGroupUser(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data.startswith('group_user_'))
 def start_detail_user(call):
     detail_user_handler.get_user_subs(call)
 
-update_group_handler = UpdateGroup(bot)
+update_group_handler = UpdateGroup(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data.startswith('edit_'))
 def start_update(call):
     update_group_handler.start_update(call)
 
-@bot.callback_query_handler(func=lambda call:call.data.startswith('confirm_delete_group'))
+@bot.callback_query_handler(func=lambda call:call.data.startswith('confirm_delete_group_'))
 def confirm_delete_group(call):
-    group_id = call.data.split('_')[2]
+    group_id = call.data.split('_')[3]
 
     markup = types.InlineKeyboardMarkup()
     markup.row(
@@ -227,7 +263,7 @@ def confirm_delete_group(call):
         reply_markup=markup
     )
 
-delete_group_handler = DeleteGroup(bot)
+delete_group_handler = DeleteGroup(bot, auth)
 @bot.callback_query_handler(func=lambda call:call.data.startswith('delete_group_'))
 def start_delete(call):
     delete_group_handler.delete(call)
@@ -281,7 +317,9 @@ def start_delete(call):
 #     elif call.data == 's_s':
 #         create_sub_handler.groups_list_sun(call)
 
-sub_handler = SubscriptionHandler(bot)
+sub_handler = SubscriptionHandler(bot, auth)
+
+# bot.polling(non_stop=True)
 
 
 

@@ -2,11 +2,11 @@ from django.db import models
 
 from django.utils import timezone
 
-from account.models import User
+from account.models import CustomUser
 from group.models import Group
 
 class Subscription(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subscriptions')
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscriptions')
     group = models.ForeignKey(Group, on_delete=models.PROTECT, related_name='subscriptions')
     start_date = models.DateField(default=timezone.now)
     end_date = models.DateField()

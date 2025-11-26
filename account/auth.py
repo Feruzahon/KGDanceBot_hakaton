@@ -1,7 +1,7 @@
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
-from .models import User
+from .models import CustomUser
 
 class TelegramAuthentication(BaseAuthentication):
     def authenticate(self, request):
@@ -9,8 +9,8 @@ class TelegramAuthentication(BaseAuthentication):
         if not telegram_id:
             return None
         try:
-            user = User.objects.get(telegram_id=telegram_id)
-        except User.DoesNotExist:
+            user = CustomUser.objects.get(telegram_id=telegram_id)
+        except CustomUser.DoesNotExist:
             raise AuthenticationFailed('User not found')
         
         return (user, None)

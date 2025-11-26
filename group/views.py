@@ -9,18 +9,16 @@ from .models import Group
 from .serializers import GroupSerializer
 from account.permissions import IsAdmin
 from account.auth import TelegramAuthentication
-from account.models import User
+from account.models import CustomUser
 from account.serializers import UserSerializer
 
 class GroupCreateView(generics.CreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [IsAdmin]
-    authentication_classes = [TelegramAuthentication]
+    # permission_classes = [IsAdmin]
+
 
 class GroupListView(APIView):
-    authentication_classes = [TelegramAuthentication]
-
     def get(self, request):
         days = request.query_params.get('days')
         queryset = Group.objects.filter(days=days).order_by('time')
@@ -30,12 +28,8 @@ class GroupListView(APIView):
 class GroupDetailView(generics.RetrieveUpdateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = [IsAdmin]
-    authentication_classes = [TelegramAuthentication]
 
 class GetGroupUsersView(APIView):
-    authentication_classes = [TelegramAuthentication]
-
     def get(self, requests, group_id):
         group = Group.objects.get(id=group_id)
         users = group.users.all()
@@ -43,8 +37,6 @@ class GetGroupUsersView(APIView):
         return Response(serialzier.data, status=200)
 
 class GroupDeleteAPIView(APIView):
-    authentication_classes = [TelegramAuthentication]
-
     def delete(self, request, pk):
         try:
             group = Group.objects.get(pk=pk)
@@ -55,23 +47,24 @@ class GroupDeleteAPIView(APIView):
         
         
 @api_view(['PATCH'])
-@authentication_classes([TelegramAuthentication])
 def add_user_to_group(request):
     group_id = request.data.get('group_id')
-    user_id = request.data.get('user_id')
-
     group = Group.objects.get(id=group_id)
-    user = User.objects.get(id=user_id)
+    if request.data.get('child_id'):
+        child_id = request.data.get('child_id')
+        # user = Child.objects.get(id=child_id)
+    else:
+        user_id = request.data.get('user_id')
+        user = CustomUser.objects.get(id=user_id)
     group.users.add(user)
     return Response({'last_name':f"{user.last_name}", 'first_name':f"{user.first_name}", 'group_title':f"{group.title}",'group_time':f"{group.time}",'group_days':f"{group.days}"}, status=200)
 
 @api_view(['PATCH'])
-@authentication_classes([TelegramAuthentication])
 def delete_user_from_group(request):
     group_id = request.data.get('group_id')
-    telegram_id = request.data.get('telegram_id')
+    id = request.data.get('user_id')
 
     group = Group.objects.get(id=group_id)
-    user = User.objects.get(telegram_id=telegram_id)
+    user = CustomUser.objects.get(id=id)
     group.users.remove(user)
     return Response({'group_days':f'{group.days}'})
