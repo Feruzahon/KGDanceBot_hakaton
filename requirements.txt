@@ -1,8 +1,13 @@
 pytelegrambotapi
+telebot-calendar
 djangorestframework
 djangorestframework-simplejwt
 python-decouple
 psycopg2-binary
 telebot-calendar
-celery
+django-filter
+drf-yasg
 redis
+celery
+pillow
+

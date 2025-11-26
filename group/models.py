@@ -2,6 +2,7 @@ from django.db import models
 
 from account.models import CustomUser
 
+
 class Group(models.Model):
     DAYS = (
         ('mon/wed/fri','пн/ср/пт'),
@@ -24,3 +25,17 @@ class Group(models.Model):
 
     def get_users_count(self):
         return self.users.count()
+    
+    #сколько еще свободных мест
+    def free_slots(self):
+        if self.amount is None:
+            return None
+        return self.amount - self.get_users_count()
+    
+    #
+    def can_add_user(self):
+        return self.free_slots() is None or self.free_slots()>0
+    
+    #
+    def as_text(self):
+        return f"{self.title} | {self.get_days_display()} | {'self.time'}"
