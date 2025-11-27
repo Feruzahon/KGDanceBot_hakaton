@@ -95,14 +95,16 @@ class ListGroup:
     def __init__(self, bot, auth):
         self.bot = bot
         self.auth=auth
+        self.bot.callback_query_handler(func=lambda call: call.data.startswith("groups_page_"))(self.paginated_group)
 
-    def _send_groups(self, chat_id, days, message_id=None):
-        response = self.auth.get(chat_id, 'group/list/', params={"days": days})
+    def _send_groups(self, chat_id, days, page=1, message_id=None):
+        response = self.auth.get(chat_id, 'group/list/', params={"days": days, "page":page})
         if response.status_code != 200:
             self.bot.send_message(chat_id, f'Ошибка: {response.status_code} {response.text}')
             return
 
-        groups = response.json()
+        data = response.json()
+        groups = data['results']
         markup = types.InlineKeyboardMarkup()
 
         for group in groups:
@@ -112,12 +114,22 @@ class ListGroup:
             group_id = group['id']
             markup.add(types.InlineKeyboardButton(f"{time} {title} Возраст: {age}", callback_data=f'group_detail_{group_id}'))
 
-        markup.add(types.InlineKeyboardButton('⬅️Назад', callback_data='groups'))
+        nav_buttons = []
+        if data.get('previous'):
+            nav_buttons.append(types.InlineKeyboardButton("⬅️", callback_data=f'groups_page_{days}_{page-1}'))
+        if data.get('next'):
+            nav_buttons.append(types.InlineKeyboardButton("➡️", callback_data=f'groups_page_{days}_{page+1}'))
+        if nav_buttons:
+            markup.add(*nav_buttons)
+
+        markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data='groups'))
+
+        text = f"<b>Список групп ({self._days_display(days)}) | Страница {page}</b>"
 
         try:
             if message_id:
                 self.bot.edit_message_text(
-                    text=f"<b>Список групп ({self._days_display(days)}):</b>",
+                    text=text,
                     chat_id=chat_id,
                     message_id=message_id,
                     parse_mode='HTML',
@@ -125,29 +137,36 @@ class ListGroup:
                 )
             else:
                 self.bot.send_message(chat_id,
-                    text=f"<b>Список групп ({self._days_display(days)}):</b>",
+                    text=text,
                     parse_mode='HTML',
                     reply_markup=markup
                 )
         except:
             self.bot.send_message(chat_id,
-                    text=f"<b>Список групп ({self._days_display(days)}):</b>",
+                    text=text,
                     parse_mode='HTML',
                     reply_markup=markup
             )
 
     def groups_list_mon(self, chat_id, message_id=None):
-        self._send_groups(chat_id, "mon/wed/fri", message_id)
+        self._send_groups(chat_id, "mon/wed/fri", page=1, message_id=message_id)
 
     def groups_list_tue(self, chat_id, message_id=None):
-        self._send_groups(chat_id, "tue/thu/sat", message_id)
+        self._send_groups(chat_id, "tue/thu/sat", page=1, message_id=message_id)
 
     def groups_list_sun(self, chat_id, message_id=None):
-        self._send_groups(chat_id, "sat/sun", message_id)
+        self._send_groups(chat_id, "sat/sun", page=1, message_id=message_id)
 
     def _days_display(self, days):
         return {'mon/wed/fri':'Пн/Ср/Пт','tue/thu/sat':'Вт/Чт/Сб','sat/sun':'Сб/Вс'}.get(days, days)
     
+    def paginated_group(self, call):
+        chat_id=call.message.chat.id
+        message_id = call.message.message_id
+        _, _, days, page = call.data.split('_')
+        page = int(page)
+
+        self._send_groups(chat_id, days=days, page=page, message_id=message_id)
 
 
 

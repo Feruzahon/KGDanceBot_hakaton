@@ -9,6 +9,9 @@ class Comment(models.Model):
     text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        verbose_name = 'Комментарий'
+        verbose_name_plural = 'Комментарии'
 
     def __str__(self):
         return f'{self.user}-{self.text[:20]}'
@@ -20,6 +23,8 @@ class Like(models.Model):
 
     class Meta:
         unique_together = ('user', 'comment')
+        verbose_name = 'Лайк'
+        verbose_name_plural = 'Лайки'
 
     def __str__(self):
-        return f'{self.user} liked {self.Comment.id}'
+        return f'{self.user} liked {self.comment.id}'

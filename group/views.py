@@ -11,9 +11,9 @@ from drf_yasg import openapi
 from .models import Group
 from .serializers import GroupSerializer
 from account.permissions import IsAdmin
-from account.auth import TelegramAuthentication
 from account.models import CustomUser
 from account.serializers import UserSerializer
+from .paginations import GroupPagination
 
 class GroupCreateView(generics.CreateAPIView):
     queryset = Group.objects.all()
@@ -49,8 +49,12 @@ class GroupListView(APIView):
     def get(self, request):
         days = request.query_params.get('days')
         queryset = Group.objects.filter(days=days).order_by('time')
-        serializer = GroupSerializer(queryset, many=True)
-        return Response(serializer.data)
+
+        paginator = GroupPagination()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+
+        serializer = GroupSerializer(paginated_qs, many=True)
+        return paginator.get_paginated_response(serializer.data)
     
 class GroupDetailView(generics.RetrieveUpdateAPIView):
     queryset = Group.objects.all()
@@ -106,68 +110,68 @@ class GroupDeleteAPIView(APIView):
         except ProtectedError:
             return Response({"detail":"❌ Невозможно удалить группу: в ней есть активные абонементы"}, status=400)
       
-class AddUserToGroupView(APIView):
-    authentication_classes = [TelegramAuthentication]
+# class AddUserToGroupView(APIView):
+#     authentication_classes = [TelegramAuthentication]
 
-    @swagger_auto_schema(
-        operation_summary="Добавить пользователя в группу",
-        operation_description="Добавляет пользователя в указанную группу, проверяет свободные места",
-        tags=["Group"],
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=['group_id','user_id'],
-            properties={
-                'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'user_id': openapi.Schema(type=openapi.TYPE_INTEGER)
-            }
-        ),
-        responses={200: "Пользователь добавлен", 400: "Ошибка добавления"}
-    )
+#     @swagger_auto_schema(
+#         operation_summary="Добавить пользователя в группу",
+#         operation_description="Добавляет пользователя в указанную группу, проверяет свободные места",
+#         tags=["Group"],
+#         request_body=openapi.Schema(
+#             type=openapi.TYPE_OBJECT,
+#             required=['group_id','user_id'],
+#             properties={
+#                 'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'user_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+#             }
+#         ),
+#         responses={200: "Пользователь добавлен", 400: "Ошибка добавления"}
+#     )
 
-    def patch(self,request):
-        group_id = request.data.get('group_id')
-        user_id = request.data.get('user_id')
+#     def patch(self,request):
+#         group_id = request.data.get('group_id')
+#         user_id = request.data.get('user_id')
 
-        group = Group.objects.get(id = group_id)
-        user = CustomUser.objects.get(id = user_id)
+#         group = Group.objects.get(id = group_id)
+#         user = CustomUser.objects.get(id = user_id)
 
-        if user in group.users.all():
-            return Response({"detail":"⚠️ Пользователь уже в группе"}, status= 400)
+#         if user in group.users.all():
+#             return Response({"detail":"⚠️ Пользователь уже в группе"}, status= 400)
         
-        if not group.can_add_user():
-            return Response({"detail":"⚠️ Нет свободных мест"},status=400)
+#         if not group.can_add_user():
+#             return Response({"detail":"⚠️ Нет свободных мест"},status=400)
         
 
 
-class DeleteUserFromGroupView(APIView):
+# class DeleteUserFromGroupView(APIView):
 
-    @swagger_auto_schema(
-        operation_summary="Удалить пользователя из группы",
-        operation_description="Удаляет пользователя из группы по telegram_id",
-        tags=["Group"],
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=['group_id','telegram_id'],
-            properties={
-                'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
-                'telegram_id': openapi.Schema(type=openapi.TYPE_INTEGER)
-            }
-        ),
-        responses={200: "Пользователь удалён"}
-    )
+#     @swagger_auto_schema(
+#         operation_summary="Удалить пользователя из группы",
+#         operation_description="Удаляет пользователя из группы по telegram_id",
+#         tags=["Group"],
+#         request_body=openapi.Schema(
+#             type=openapi.TYPE_OBJECT,
+#             required=['group_id','telegram_id'],
+#             properties={
+#                 'group_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+#                 'telegram_id': openapi.Schema(type=openapi.TYPE_INTEGER)
+#             }
+#         ),
+#         responses={200: "Пользователь удалён"}
+#     )
     
-    def patch(self, request):
-        group_id = request.data.get('group_id')
-        telegram_id = request.data.get('telegram_id')
+#     def patch(self, request):
+#         group_id = request.data.get('group_id')
+#         telegram_id = request.data.get('telegram_id')
 
-        group = Group.objects.get(id = group_id)
-        user = CustomUser.objects.get(telegram_id = telegram_id)
+#         group = Group.objects.get(id = group_id)
+#         user = CustomUser.objects.get(telegram_id = telegram_id)
 
-        group.user.remove(user)
-        return Response({
-            "detail":"Пользователь удалён",
-            "free_slots": group.free_slots(),
-        }, status=200)
+#         group.user.remove(user)
+#         return Response({
+#             "detail":"Пользователь удалён",
+#             "free_slots": group.free_slots(),
+#         }, status=200)
 
 
 @api_view(['PATCH'])
