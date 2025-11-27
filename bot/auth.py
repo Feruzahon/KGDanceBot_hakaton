@@ -142,11 +142,6 @@ class Auth:
 
     def get_email(self, message):
         email = message.text.strip()
-        # if '@.' not in email:
-        #     self.bot.send_message(message.chat.id, 'Неверный формат e-mail. Попробуйте снова: ')
-        #     self.bot.register_next_step_handler(message, self.get_email)
-        #     return
-        
         self.user_data[message.chat.id]['email'] = email
 
         self.bot.send_message(message.chat.id, 'Введите пароль: ')
@@ -202,7 +197,6 @@ class Auth:
         
     
     def get_phone(self, message):
-        # print(f"USER_DATA for {telegram_id}:", self.user_data.get(telegram_id))
 
         if message.contact:
             phone = message.contact.phone_number
@@ -217,9 +211,9 @@ class Auth:
             return
 
         self.user_data[message.chat.id]['phone'] = phone
-        # remove_markup = types.ReplyKeyboardRemove()
 
         data = {
+            'telegram_id':message.from_user.id,
             'email':self.user_data[message.chat.id]['email'],
             'password':self.user_data[message.chat.id]['password'],
             'role':self.user_data[message.chat.id]['role'],

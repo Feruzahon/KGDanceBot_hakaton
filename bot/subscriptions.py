@@ -4,11 +4,8 @@ from telebot_calendar import Calendar, CallbackData, RUSSIAN_LANGUAGE
 from datetime import datetime
 from datetime import timedelta
 
-
 API_URL = 'http://127.0.0.1:8000/subscription/'
 API_URL_GROUP = 'http://127.0.0.1:8000/group/'
-            
-
 
 class SubscriptionHandler:
      

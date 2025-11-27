@@ -1,6 +1,6 @@
 from django.contrib.auth.base_user import BaseUserManager
 
-from .tasks import send_activation_email
+from account.tasks import send_activation_email
 
 class UserManager(BaseUserManager):
     def create_user(self, email=None, password=None, **extra_fields):

@@ -319,7 +319,7 @@ def start_delete(call):
 
 sub_handler = SubscriptionHandler(bot, auth)
 
-# bot.polling(non_stop=True)
+
 
 
 

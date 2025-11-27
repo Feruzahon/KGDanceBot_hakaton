@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view
 
 from .models import Subscription
 from .serializers import SubscriptionSerializer
+from .tasks import check_subscription_expiry
     
 class CreateSubView(APIView):
     def post(self, request):
@@ -46,8 +47,14 @@ def mark_attendance(request, subscription_id):
 
     sub.used_lessons = sum(1 for s in attendance.values() if s)
     sub.save()
-    sub.check_and_delete()
+    check_subscription_expiry.delay(sub.id)
+    check_and_delete_sub(sub.id)
     return Response({'message': 'Attendance updated', 'attendance': sub.attendance, 'total_lessons':sub.total_lessons})
+
+def check_and_delete_sub(sub_id):
+    sub = Subscription.objects.get(id=sub_id)
+    if len(sub.attendance) == sub.total_lessons:
+        sub.delete()
 
 class DeleteSubView(APIView):
     def delete(self, request, sub_id):
