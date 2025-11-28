@@ -1,131 +1,21 @@
 import requests
 from telebot import types
-import random
-from .utils import show_menu, AuthManager
+from .utils import show_menu
 
-API_URL = 'http://127.0.0.1:8000/account/'
-
-# class Auth:
-
-#     def __init__(self, bot):
-#         self.bot = bot
-#         self.user_data = {}
-
-#         self.bot.callback_query_handler(func=lambda call:call.data.startswith('role'))(self.choose_role)
-
-#     def authentication(self, message):
-#         telegram_id = message.from_user.id
-        
-#         response = requests.post(f"{API_URL}tg_login/", json={"telegram_id":telegram_id})
-#         if response.status_code == 200:
-#             data = response.json()
-#             name = data.get('first_name')
-#             role = data.get('role')
-#             show_menu(self.bot, role, message.chat.id)
-#             self.bot.send_message(message.chat.id,f'С возвращением {name}! 🥳')
-
-#         elif response.status_code == 404:
-
-#             self.user_data[telegram_id] = {}
-
-#             markup = types.InlineKeyboardMarkup()
-#             markup.row(
-#                 types.InlineKeyboardButton('Родитель', callback_data=f'role_parent_{telegram_id}'),
-#                 types.InlineKeyboardButton('Пользователь', callback_data=f'role_user_{telegram_id}')
-#             )
-#             self.bot.send_message(message.chat.id,'Укажите кто вы:', reply_markup=markup)
-
-
-#     def choose_role(self, call):
-#         telegram_id = int(call.data.split('_')[-1])
-#         role = call.data.split('_')[1] 
-#         self.user_data[telegram_id]={'role':role}
-
-#         self.bot.send_message(call.message.chat.id, 'Введите ваше имя: ')
-#         self.bot.register_next_step_handler_by_chat_id(chat_id=call.message.chat.id, 
-#                                                        callback=lambda message:self.get_name(message, telegram_id))
-
-
-#     def get_name(self, message, telegram_id):
-#         name = message.text.strip()
-#         self.user_data[telegram_id]['name'] = name
-
-#         if not name:
-#             self.bot.send_message(message.chat.id, "Имя не может быть пустым. Попробуйте еще раз:")
-#             self.bot.register_next_step_handler(message, self.get_name)
-            
-#         self.bot.send_message(message.chat.id, 'Введите фамилию: ')
-#         self.bot.register_next_step_handler_by_chat_id(chat_id=message.chat.id, 
-#                                                        callback=lambda message:self.get_last_name(message, telegram_id))
-
-
-#     def get_last_name(self, message, telegram_id):
-#         last_name = message.text.strip()
-#         self.user_data[telegram_id]['last_name'] = last_name
-
-#         if not last_name:
-#             self.bot.send_message(message.chat.id, "Фамилия не может быть пустым. Попробуйте еще раз:")
-#             self.bot.register_next_step_handler(message, self.get_last_name)
-        
-#         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-#         markup.add(types.KeyboardButton(text='📞 Отправить номер', request_contact=True))
-#         self.bot.send_message(message.chat.id, 'Отправьте номер телефона(+996): ', reply_markup=markup)
-#         self.bot.register_next_step_handler_by_chat_id(chat_id=message.chat.id, 
-#                                                        callback=lambda message:self.get_phone(message, telegram_id))
-        
-    
-#     def get_phone(self, message, telegram_id):
-#         # print(f"USER_DATA for {telegram_id}:", self.user_data.get(telegram_id))
-
-#         if message.contact:
-#             phone = message.contact.phone_number
-#         else:
-#             phone = message.text.strip()
-
-#         if phone.startswith('9'):
-#             phone = '+' + phone 
-#         if not phone or not phone.startswith("+") or not phone[1:].isdigit():
-#             self.bot.send_message(message.chat.id, f'Неверный формат номера ({phone}). Попробуйте ещё раз: ')
-#             self.bot.register_next_step_handler(message, lambda msg: self.get_phone(msg, telegram_id))
-#             return
-
-#         self.user_data[telegram_id]['phone'] = phone
-#         # remove_markup = types.ReplyKeyboardRemove()
-
-#         data = {
-#             'telegram_id':telegram_id,
-#             'username':f'user_{telegram_id}',
-#             'role':self.user_data[telegram_id]['role'],
-#             'first_name':self.user_data[telegram_id]['name'],
-#             'last_name':self.user_data[telegram_id]['last_name'],
-#             'phone':phone
-#         }
-
-#         try:
-#             response = requests.post(f"{API_URL}tg_register/", json = data)
-#             if response.status_code == 200:
-#                 role = self.user_data[message.chat.id]['role']
-#                 show_menu(self.bot, role, message.chat.id)
-
-#                 self.bot.send_message(message.chat.id, 'Добро пожаловать! 🎉 Вы зарегистрированы.')
-#             else:
-#                 self.bot.send_message(message.chat.id, f'Ошибка при регистрации: {response.status_code}\n{response.text}')
-#         except Exception as e:
-#             self.bot.send_message(message.chat.id, f'Ошибка при регестрации: {e}')
-#         finally:
-#                 self.user_data.pop(telegram_id)
-
-
+API_URL="http://127.0.0.1:8000/account/"
 
 class Auth:
     def __init__(self, bot, auth):
         self.bot = bot
         self.auth = auth
         self.user_data = {}
+        self.rec_data = {}
 
         self.bot.callback_query_handler(func=lambda call:call.data=='login')(self.login)
         self.bot.callback_query_handler(func=lambda call:call.data=='register')(self.register)
         self.bot.callback_query_handler(func=lambda call:call.data.startswith('role_'))(self.get_role)
+        self.bot.callback_query_handler(func=lambda call:call.data=='recovery_password')(self.start_recovery)
+
 
     def start_auth(self, message):
         markup = types.InlineKeyboardMarkup()
@@ -197,6 +87,7 @@ class Auth:
         
     
     def get_phone(self, message):
+        chat_id = message.chat.id
 
         if message.contact:
             phone = message.contact.phone_number
@@ -223,10 +114,8 @@ class Auth:
         }
 
         try:
-            response = requests.post(f"{API_URL}register/", json = data)
+            response = requests.post(f"{API_URL}/register/",json=data)
             if response.status_code == 200:
-                role = self.user_data[message.chat.id]['role']
-                # show_menu(self.bot, role, message.chat.id)
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton('Войти', callback_data='login'))
                 self.bot.send_message(message.chat.id, f'На вашу почту был отправлен код для активации. {self.user_data[message.chat.id]['email']}\nПосле активации нажмите войти.',
@@ -239,7 +128,7 @@ class Auth:
         finally:
                 self.user_data.pop(message.chat.id)
 
-    
+# ------------------LOGIN--------------------
     def login(self, call):
         self.user_data[call.message.chat.id] = {}
         self.bot.send_message(call.message.chat.id, 'Введите логин: ')
@@ -273,18 +162,83 @@ class Auth:
                 self.bot.send_message(message.chat.id,f'Добро пожаловать, {first_name}! 🥳')  
                 self.user_data.pop(chat_id)         
             elif response.status_code == 401:
-                self.bot.send_message(message.chat.id, 'Не найдено активной учетной записи с указанными данными. Попробуйте снова:')
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton('Забили пароль?', callback_data='recovery_password'))
+                self.bot.send_message(
+                    message.chat.id, 'Не найдено активной учетной записи с указанными данными. Попробуйте снова:',
+                    reply_markup=markup)
                 self.bot.register_next_step_handler(message, self.get_email_login)
             else:
                 self.bot.send_message(message.chat.id, f'Ошибка при входе: {response.status_code}\n{response.text}')
         except Exception as e:
             self.bot.send_message(message.chat.id, f'Ошибка: {e}')
-    
 
+# -----------------------ResetPassword-------------------------------
 
+    def start_recovery(self, call):
+        self.user_data.pop(call.message.chat.id)
+        self.rec_data[call.message.chat.id] = {}
 
+        self.bot.send_message(call.message.chat.id, 'Введите email для восстановления(логин): ')
+        self.bot.register_next_step_handler(call.message, self.get_email_for_recovery)
 
+    def get_email_for_recovery(self, message):
+        chat_id = message.chat.id
+        email = message.text.strip()
+        self.rec_data[message.chat.id]['email'] = email
+        data = {'email':email}
+        try:
+            response = requests.post(f"{API_URL}password_reset/", json=data)
+            if response.status_code==200:
+                data = response.json()
+                self.rec_data[chat_id]['uid'] = data['uid']
+                self.rec_data[chat_id]['token'] = data['token']
+                self.rec_data[chat_id]['code'] = data['code']
+                self.bot.send_message(chat_id, 
+                                      f'На вашу почту был отправлен код для активации. {email}\n'
+                                      f'Введите код активации: '
+                                      )
+                self.bot.register_next_step_handler(message,self.get_code)
+            else:
+                self.bot.send_message(message.chat.id, f'Ошибка: {response.status_code}\n{response.text}')
+        except Exception as e:
+            self.bot.send_message(message.chat.id, f'Ошибка: {e}')
 
+    def get_code(self, message):
+        code = message.text.strip()
+        if code != self.rec_data[message.chat.id]['code']:
+            self.bot.send_message(message.chat.id, 'Неверный код для активации. Попробуйте снова: ')
+            self.bot.register_next_step_handler(message,self.get_code)
+            return
+        self.bot.send_message(message.chat.id, 'Введите новый пароль: ')
+        self.bot.register_next_step_handler(message,self.get_new_password)
+
+    def get_new_password(self, message):
+        password = message.text.strip()
+        self.bot.send_message(message.chat.id,'Введите пароль повторно: ')
+        self.bot.register_next_step_handler(message, self.get_new_p2, password)
+
+    def get_new_p2(self,message, password):
+        p2 = message.text.strip()
+        if password != p2:
+            self.bot.send_message(message.chat.id,'Пароли не совпали! Введите пароль повторно: ')
+            self.bot.register_next_step_handler(message,self.get_new_password)
+            return
+        
+        self.rec_data[message.chat.id]['new_password'] = password
+        data = {"new_password":password}
+        uid = self.rec_data[message.chat.id]['uid']
+        token = self.rec_data[message.chat.id]['token']
+
+        response = requests.post(f"{API_URL}password_reset_confirm/{uid}/{token}/", data)
+        if response.status_code == 200:
+            self.bot.send_message(message.chat.id, 'Пароль сменен успешно!')
+            self.rec_data.pop(message.chat.id)
+        else:
+            self.bot.send_message(message.chat.id, f'Ошибка: {response.status_code} {response.text}')
+            
+        
+        
 class ChildRegister:
 
     def __init__(self, bot, auth):
@@ -352,6 +306,10 @@ class ChildRegister:
         except Exception as e:
             self.bot.send_message(chat_id,f"Произошла ошибка при регистрации: {e}")
         finally:
-                self.child_data.pop(chat_id)
+            self.child_data.pop(chat_id)
 
 
+
+
+    
+        
