@@ -5,8 +5,8 @@ from rest_framework import viewsets, permissions
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 #
-from .models import Comment, Like
-from .serializers import CommentSerializer, LikeSerializer
+from .models import Comment, Like, Favorite
+from .serializers import CommentSerializer, LikeSerializer, FavoriteSerializer
 from .permissions import IsOwnerOrReadOnly
 
 
@@ -38,7 +38,6 @@ class CommentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-
 class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerializer
@@ -60,3 +59,7 @@ class LikeViewSet(viewsets.ModelViewSet):
 #
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+class FavoriteViewSet(viewsets.ModelViewSet):
+    queryset = Favorite
+    serializer_class = FavoriteSerializer

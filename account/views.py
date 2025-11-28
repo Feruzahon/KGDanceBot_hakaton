@@ -18,6 +18,7 @@ from decouple import config
 
 class TelegramRegisterView(APIView):
     authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         serializer = UserSerializer(data=request.data)
@@ -27,6 +28,7 @@ class TelegramRegisterView(APIView):
     
 class ActivateView(APIView):
     authentication_classes = []
+    permission_classes = []
 
     def get(self, request):
         activation_code = request.query_params.get('u')
@@ -39,6 +41,7 @@ class ActivateView(APIView):
 HOST = config('HOST_FOR_SEND_MAIL')
 class PasswordResetAPIView(APIView):
     authentication_classes = []
+    permission_classes = []
     
     def post(self, request):
         email = request.data.get('email')
@@ -59,6 +62,7 @@ class PasswordResetAPIView(APIView):
     
 class PasswordResetConfirmAPIView(APIView):
     authentication_classes = []
+    permission_classes = []
 
     def post(self, request, uidb64, token):
         password = request.data.get('new_password')
@@ -75,6 +79,7 @@ class PasswordResetConfirmAPIView(APIView):
         return Response({"detail": "Password changed"},status=200)
 
 class MyTokenObtainPairView(TokenObtainPairView):
+    permission_classes = []
     serializer_class = MyTokenObtainPairSerializer
 
 class ChildRegisterView(APIView):
