@@ -6,6 +6,7 @@ class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
         fields = '__all__'
+        read_only_fields = ['id', 'users']
     
     user_count = serializers.SerializerMethodField()
     teacher = UserSerializer(read_only = True) # добавленипе тренена (препода)

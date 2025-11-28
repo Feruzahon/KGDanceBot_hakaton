@@ -1,9 +1,13 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
+from rest_framework import status
 from django.db.models import ProtectedError
+from rest_framework import status
 #
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi 
@@ -19,6 +23,7 @@ class GroupCreateView(generics.CreateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     # permission_classes = [IsAdmin]
+    parser_classes = (MultiPartParser, FormParser)
 
     @swagger_auto_schema(
         operation_summary="Создать новую группу",
@@ -59,6 +64,7 @@ class GroupListView(APIView):
 class GroupDetailView(generics.RetrieveUpdateAPIView):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
+    parser_classes = (MultiPartParser, FormParser)
 
     @swagger_auto_schema(
         operation_summary="Получить или обновить группу",
@@ -77,6 +83,35 @@ class GroupDetailView(generics.RetrieveUpdateAPIView):
     )
     def put(self, request, *args, **kwargs):
         return super().put(request, *args, **kwargs)
+    #
+    @swagger_auto_schema(
+        operation_summary="Загрузить изображение группы",
+        responses={200: GroupSerializer},
+    )
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    
+    def upload_image(self, request, pk=None):
+        group = self.get_object()
+        file = request.FILES.get('image')
+        if not file:
+            return Response({"detail": "Файл не передан"}, status=status.HTTP_400_BAD_REQUEST)
+        group.image = file
+        group.save()
+        serializer = self.get_serializer(group)
+        return Response(serializer.data)
+
+    @swagger_auto_schema(
+        operation_summary="Удалить изображение группы",
+        responses={200: GroupSerializer},
+    )
+    @action(detail=True, methods=['delete'])
+    def delete_image(self, request, pk=None):
+        group = self.get_object()
+        if not group.image:
+            return Response({"detail": "Изображение отсутствует"}, status=status.HTTP_400_BAD_REQUEST)
+        group.image.delete(save=True)
+        serializer = self.get_serializer(group)
+        return Response(serializer.data)
 
 class GetGroupUsersView(APIView):
 
@@ -196,3 +231,23 @@ def delete_user_from_group(request):
     group.users.remove(user)
     return Response({'group_days':f'{group.days}'})
 
+@api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser])
+def upload_group_image(request, pk):
+    group = get_object_or_404(Group, pk=pk)
+    file = request.FILES.get('image')
+    if not file:
+        return Response({"detail": "Файл не передан"}, status=400)
+    group.image = file
+    group.save()
+    serializer = GroupSerializer(group)
+    return Response(serializer.data)
+
+@api_view(['DELETE'])
+def delete_group_image(request, pk):
+    group = get_object_or_404(Group, pk=pk)
+    if not group.image:
+        return Response({"detail": "Изображение отсутствует"}, status=400)
+    group.image.delete(save=True)
+    serializer = GroupSerializer(group)
+    return Response(serializer.data)

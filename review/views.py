@@ -1,6 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, permissions
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.decorators import action
+from rest_framework import status
 #
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -13,9 +16,11 @@ from .permissions import IsOwnerOrReadOnly
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
+    parser_classes = (MultiPartParser, FormParser)
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['group', 'user']
+    
 #для свагера описание
     @swagger_auto_schema(
         operation_summary="Создать новый комментарий",
@@ -34,10 +39,38 @@ class CommentViewSet(viewsets.ModelViewSet):
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
-#
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+#
+    @swagger_auto_schema(
+        operation_summary="Загрузить изображение к комментарию",
+        responses={200: CommentSerializer}
+    )
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_image(self, request, pk=None):
+        comment = self.get_object()
+        file = request.FILES.get('image')
+        if not file:
+            return Response({"detail": "Файл не передан"}, status=status.HTTP_400_BAD_REQUEST)
+        comment.image = file
+        comment.save()
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data)
 
+    @swagger_auto_schema(
+        operation_summary="Удалить изображение комментария",
+        responses={200: CommentSerializer}
+    )
+    @action(detail=True, methods=['delete'])
+    def delete_image(self, request, pk=None):
+        comment = self.get_object()
+        if not comment.image:
+            return Response({"detail": "Изображение отсутствует"}, status=status.HTTP_400_BAD_REQUEST)
+        comment.image.delete(save=True)
+        serializer = self.get_serializer(comment)
+        return Response(serializer.data)
+#
 class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerializer
