@@ -15,7 +15,7 @@ class Group(models.Model):
     days = models.CharField(max_length=50, choices=DAYS, null=True)
     age = models.CharField(max_length=100, default='Все')
     amount = models.PositiveIntegerField(null=True, blank=True)
-    image = models.ImageField(upload_to='group_images/', null=True, blank=True)
+    image = models.ImageField(upload_to='media/', null=True, blank=True)
     
     def __str__(self):
         return f'{self.title} {self.time}'

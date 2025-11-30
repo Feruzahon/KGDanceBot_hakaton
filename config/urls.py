@@ -42,12 +42,9 @@ urlpatterns = [
     path('group/', include('group.urls')),
     path('subscription/', include('subscription.urls')),
     path('', include('bot.urls')),
-    #
     path('review/', include('review.urls')),
-
-
     path('swagger/',schema_view.with_ui('swagger',cache_timeout=0),name = 'swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='redoc-ui'),
 ]
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
