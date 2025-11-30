@@ -104,7 +104,7 @@ class Auth:
         self.user_data[message.chat.id]['phone'] = phone
 
         data = {
-            'telegram_id':message.from_user.id,
+            # 'telegram_id':message.from_user.id,
             'email':self.user_data[message.chat.id]['email'],
             'password':self.user_data[message.chat.id]['password'],
             'role':self.user_data[message.chat.id]['role'],
@@ -114,7 +114,7 @@ class Auth:
         }
 
         try:
-            response = requests.post(f"{API_URL}/register/",json=data)
+            response = requests.post(f"{API_URL}register/",json=data)
             if response.status_code == 200:
                 markup = types.InlineKeyboardMarkup()
                 markup.add(types.InlineKeyboardButton('Войти', callback_data='login'))

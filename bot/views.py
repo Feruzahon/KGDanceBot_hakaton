@@ -10,6 +10,7 @@ from .main import bot
 @method_decorator(csrf_exempt, name='dispatch')
 class TelegramWebhookView(APIView):
     authentication_classes = []
+    permission_classes = []
 
     def post(self, request):
         try:
