@@ -6,6 +6,7 @@ class Comment(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='comments')
     group = models.ForeignKey(Group, on_delete= models.CASCADE, related_name='comments')
     text = models.TextField()
+    image = models.ImageField(upload_to='media/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
