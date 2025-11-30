@@ -100,7 +100,6 @@ class SubscriptionHandler:
         
     def get_total_lessons(self, message):
         chat_id = message.chat.id
-        telegram_id = message.from_user.id
         total_lessons = int(message.text.strip())
 
         self.sub_data[message.chat.id]['total_lessons'] = total_lessons
@@ -109,7 +108,7 @@ class SubscriptionHandler:
         end_date = datetime.strptime(self.sub_data[chat_id]['end_date'], '%Y-%m-%d')
 
         group_id = self.sub_data[chat_id]['group_id']
-        group_response = requests.get(f"http://127.0.0.1:8000/group/detail/{group_id}/", headers={'X-Telegram-Id':str(telegram_id)})
+        group_response = self.auth.get(chat_id, f"group/detail/{group_id}/")
         days = group_response.json().get('days')
         
         day_map = {

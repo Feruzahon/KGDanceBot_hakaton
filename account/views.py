@@ -6,7 +6,6 @@ from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .models import CustomUser
@@ -14,7 +13,6 @@ from .serializers import UserSerializer, MyTokenObtainPairSerializer
 from .permissions import IsParentOrAdmin
 
 from decouple import config
-
 
 class TelegramRegisterView(APIView):
     authentication_classes = []

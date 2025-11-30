@@ -32,4 +32,11 @@ class Like(models.Model):
 class Favorite(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='favorites')
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name='favorites')
+
+    class Meta:
+        verbose_name = 'Избранное'
+        verbose_name_plural = 'Избранные'
+
+    def __str__(self):
+        return f'{self.user}: {self.group}'
     
