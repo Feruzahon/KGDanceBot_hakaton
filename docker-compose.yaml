@@ -33,18 +33,6 @@ services:
       - .env
     depends_on:
       - redis
-
-  bot:
-    build: .
-    command: python bot/main.py
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    depends_on:
-      - redis
-      - apps
-
       
 volumes:
   pgdata:

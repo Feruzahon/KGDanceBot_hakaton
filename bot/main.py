@@ -18,7 +18,6 @@ requests.get(f"https://api.telegram.org/bot{TOKEN}/setWebhook?url={WEBHOOK_URL}"
 
 auth=AuthManager()
 
-
 auth_handler = Auth(bot, auth)
 @bot.message_handler(commands=['start'])
 def authentication(message):

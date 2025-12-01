@@ -199,6 +199,8 @@ class Auth:
                                       f'Введите код активации: '
                                       )
                 self.bot.register_next_step_handler(message,self.get_code)
+            elif response.status_code==404:
+                self.bot.send_message(message.chat.id, 'Не найдено активной учетной записи с указанными данными.')
             else:
                 self.bot.send_message(message.chat.id, f'Ошибка: {response.status_code}\n{response.text}')
         except Exception as e:
