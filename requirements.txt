@@ -9,4 +9,4 @@ drf-yasg
 redis
 celery
 pillow
-
+django-redis
