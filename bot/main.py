@@ -79,45 +79,6 @@ def exit(call):
     bot.delete_message(call.message.chat.id, call.message.message_id)
 
 
-# --------Расписание-------
-@bot.callback_query_handler(func=lambda call:call.data == 'timetable')
-def timetable_handler(call):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('Пн-Ср-Пт', callback_data='timetable_mon/wed/fri'))
-    markup.add(types.InlineKeyboardButton('Вт-Чт-Сб', callback_data='timetable_tue/thu/sat'))
-    markup.add(types.InlineKeyboardButton('Сб-Вс', callback_data='timetable_sat/sun'))
-    markup.add(types.InlineKeyboardButton('⬅️ Главное меню', callback_data='menu'))
-    bot.edit_message_text(
-        'Выберите дни недели:',
-        call.message.chat.id,
-        call.message.message_id,
-        reply_markup=markup
-    )
-
-@bot.callback_query_handler(func=lambda call:call.data.startswith('timetable_'))
-def days_handler(call):
-    days = call.data.split('_')[1]
-    chat_id = call.message.chat.id
-    response = auth.get(chat_id, f"group/list/", params={'days':days})
-    if response.status_code == 200:
-        groups = response.json()
-        markup = types.InlineKeyboardMarkup()
-        for group in groups:
-            title = group['title']
-            time = group['time'][:5]
-            age = group['age']
-            markup.add(types.InlineKeyboardButton(f"{time} {title} Возраст: {age}", callback_data='/'))
-        markup.add(types.InlineKeyboardButton('⬅️ Назад', callback_data='timetable'))
-
-        show_days = {'mon/wed/fri':'Пн-Ср-Пт','tue/thu/sat':'Вт-Чт-Сб','sat/sun':'Сб-Вс'}.get(days)
-        bot.edit_message_text(
-                    text=f"<b>Список групп({show_days}):</b>",
-                    chat_id=call.message.chat.id,
-                    message_id=call.message.message_id,
-                    parse_mode='HTML',
-                    reply_markup=markup
-                )
-        
 # ------Адрес и контакты-----------
 @bot.callback_query_handler(func=lambda call:call.data == 'adress_contacts')
 def adress_contacts(call):
@@ -269,3 +230,4 @@ def start_delete(call):
     delete_group_handler.delete(call)
 
 sub_handler = SubscriptionHandler(bot, auth)
+

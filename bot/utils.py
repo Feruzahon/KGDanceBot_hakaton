@@ -7,14 +7,8 @@ class AuthManager:
     def __init__(self):
         self.sessions = {}
 
-    # =====================================================
-    # =============== LOGIN + STORE TOKENS ================
-    # =====================================================
-
     def login(self, chat_id, email, password):
-        """
-        Логинит пользователя и сохраняет access, refresh.
-        """
+
         url = f"{API_URL}account/login/"
 
         data = {
@@ -42,14 +36,7 @@ class AuthManager:
 
         return response
 
-    # =====================================================
-    # =============== REFRESH ACCESS TOKEN =================
-    # =====================================================
-
     def refresh_access(self, chat_id):
-        """
-        Пытается обновить access токен через refresh.
-        """
 
         if chat_id not in self.sessions:
             return None
@@ -59,7 +46,6 @@ class AuthManager:
         url = f"{API_URL}account/token/refresh/"
         response = requests.post(url, json={"refresh": refresh_token})
 
-        # Refresh токен тоже умер → пользователь не авторизован
         if response.status_code != 200:
             return None
 
@@ -75,10 +61,6 @@ class AuthManager:
 
         return new_access
 
-    # =====================================================
-    # =============== INTERNAL REQUEST WRAPPER =============
-    # =====================================================
-
     def _request(self, chat_id, method, endpoint, data=None, params=None):
         """
         Делает запрос к API с токеном. Если токен истёк — обновляет.
@@ -89,10 +71,8 @@ class AuthManager:
 
         url = f"{API_URL}{endpoint}"
 
-        # Первый запрос
         response = requests.request(method, url, json=data, params=params, headers=headers)
 
-        # Если токен истёк — обновляем и повторяем
         if response.status_code == 401:
             new_access = self.refresh_access(chat_id)
 
@@ -100,10 +80,6 @@ class AuthManager:
             response = requests.request(method, url, json=data, params=params, headers=headers)
 
         return response
-
-    # =====================================================
-    # ================= PUBLIC API METHODS =================
-    # =====================================================
 
     def get(self, chat_id, endpoint, params=None):
         return self._request(chat_id, "GET", endpoint, params=params)
@@ -116,10 +92,6 @@ class AuthManager:
 
     def delete(self, chat_id, endpoint, data=None):
         return self._request(chat_id, "DELETE", endpoint, data=data)
-
-    # =====================================================
-    # =================== USER HELPERS =====================
-    # =====================================================
 
     def is_authenticated(self, chat_id):
         return chat_id in self.sessions
@@ -140,7 +112,6 @@ def show_menu(bot, role, chat_id, message_id=None, edit=False):
 
     if role == 'student':
         markup.add(types.InlineKeyboardButton('Мои абонементы', callback_data='my_subscriptions'))
-        markup.add(types.InlineKeyboardButton('Расписание занятий', callback_data='timetable'))
         markup.add(types.InlineKeyboardButton('Адрес и контакты', callback_data='adress_contacts'))
         markup.add(types.InlineKeyboardButton('Выйти', callback_data='exit'))
         
@@ -148,13 +119,11 @@ def show_menu(bot, role, chat_id, message_id=None, edit=False):
         markup.add(types.InlineKeyboardButton('Мои абонементы', callback_data='my_subscriptions'))
         markup.add(types.InlineKeyboardButton('Мои дети', callback_data='my_childs_subscriptions'))
         markup.add(types.InlineKeyboardButton('Зарегистрировать ребенка', callback_data='register_child'))
-        markup.add(types.InlineKeyboardButton('Расписание занятий', callback_data='timetable'))
         markup.add(types.InlineKeyboardButton('Адрес и контакты', callback_data='adress_contacts'))
         markup.add(types.InlineKeyboardButton('Выйти', callback_data='exit'))
 
     elif role == 'admin':
         markup.add(types.InlineKeyboardButton('Открыть панель администратора', callback_data='admin_panel'))
-        markup.add(types.InlineKeyboardButton('Расписание занятий', callback_data='timetable'))
         markup.add(types.InlineKeyboardButton('Выйти', callback_data='exit'))
 
     if edit and message_id:

@@ -39,8 +39,6 @@ class SubscriptionHandler:
          markup = types.InlineKeyboardMarkup()
          markup.add(types.InlineKeyboardButton('❌ Отменить', callback_data='cancel_create_sub'))
          return markup
-    
-# to-do получить total_lessons автоматически
 
     def create_sub(self, call):
         user_id = call.data.split('_')[2]
@@ -141,7 +139,7 @@ class SubscriptionHandler:
             }
 
         try:
-            response = self.auth.post(chat_id, f'subscription/create_subscription/', data)
+            response = requests.post(f'{API_URL}create_subscription/', json=data,  headers={"Authorization":f"Bearer {self.auth.sessions[chat_id]['access']}"})
             if response.status_code in [200, 201]:
                 sub = response.json()
                 self.bot.send_message(chat_id,

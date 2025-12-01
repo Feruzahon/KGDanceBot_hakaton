@@ -54,7 +54,6 @@ class CreateGroup:
 
 
     def choose_day(self, call):
-        telegram_id = call.from_user.id
         chat_id=call.message.chat.id
         days = call.data
 
@@ -67,7 +66,8 @@ class CreateGroup:
         }
     
         try:
-            response = self.auth.post(chat_id, f'group/create/', data)
+    
+            response = requests.post(f'http://127.0.0.1:8000/group/create/', data=data, headers={"Authorization":f"Bearer {self.auth.sessions[chat_id]['access']}"})
             if response.status_code in  [200,201]:
                 self.bot.send_message(chat_id, f'Группа "{self.group_data[call.message.chat.id]['title']} {self.group_data[call.message.chat.id]['time']}" создана. ✅')
             else:
@@ -637,11 +637,8 @@ class UpdateGroup:
         self.bot.send_message(call.message.chat.id, 'Выберите дни: ', reply_markup=markup)
 
     def get_days(self, call):
-        print(0)
         days = call.data
-        print(0)
         self.edit_data[call.message.chat.id]['data']['days'] = days
-        print(0)
         self.show_edit_menu(call.message.chat.id)
 
     def save_changes(self, chat_id, message):
@@ -670,7 +667,7 @@ class UpdateGroup:
         self.bot.send_message(chat_id, "Сохраняем изменения:\n" + "\n".join(changes))
 
         try:
-            response = self.auth.patch(chat_id, f'group/detail/{group_id}/', data)
+            response = requests.patch(f'http://127.0.0.1:8000/group/detail/{group_id}/', data=data, headers={"Authorization":f"Bearer {self.auth.sessions[chat_id]['access']}"})
             if response.status_code in [200,204]:
                 self.bot.send_message(message.chat.id, 
                                       f'Группа изменена. ✅ ')

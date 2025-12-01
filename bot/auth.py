@@ -104,7 +104,7 @@ class Auth:
         self.user_data[message.chat.id]['phone'] = phone
 
         data = {
-            # 'telegram_id':message.from_user.id,
+            'telegram_id':message.from_user.id,
             'email':self.user_data[message.chat.id]['email'],
             'password':self.user_data[message.chat.id]['password'],
             'role':self.user_data[message.chat.id]['role'],

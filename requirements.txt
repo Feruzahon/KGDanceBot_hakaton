@@ -4,7 +4,6 @@ djangorestframework
 djangorestframework-simplejwt
 python-decouple
 psycopg2-binary
-telebot-calendar
 django-filter
 drf-yasg
 redis
