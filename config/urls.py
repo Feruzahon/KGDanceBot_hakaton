@@ -22,6 +22,8 @@ from django.conf.urls.static import static
 from rest_framework.permissions import AllowAny
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
+from bot.views import TelegramWebhookView
+
 
 schema_view=get_schema_view(
     openapi.Info(
@@ -43,6 +45,7 @@ urlpatterns = [
     path('review/', include('review.urls')),
     path('swagger/',schema_view.with_ui('swagger',cache_timeout=0),name = 'swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='redoc-ui'),
+    path('telegram_webhook/', TelegramWebhookView.as_view(), name='telegram_webhook'),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

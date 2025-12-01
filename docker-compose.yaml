@@ -1,16 +1,16 @@
 version: '3'
 
-
 services:
   apps:
     build: ./
-    command: sh -c "chmod +x entrypoint.sh && sh entrypoint.sh"
+    command: sh -c "./entrypoint.sh"
     ports:
       - "8000:8000"
     env_file:
       - .env
     depends_on:
       - db
+      - redis
 
   db:
     image: postgres:16-alpine
@@ -21,7 +21,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    volumes: 
+    volumes:
       - redis-data:/data
     ports:
       - 6379
@@ -33,7 +33,26 @@ services:
       - .env
     depends_on:
       - redis
-      
+      - db
+
+  celery-beat:
+    build: ./
+    command: ["celery","-A","config","beat","--loglevel=info"]
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - apps
+
 volumes:
   pgdata:
   redis-data:
